@@ -1,5 +1,5 @@
 ==========================================================
-montepyhton_2cosmos, a modification of Monte Python, 
+Monte Python 2cosmos, a modification of Monte Python, 
 a Monte Carlo Markov Chain code (with CLASS!)
 ===========================================================
 
@@ -20,6 +20,11 @@ for which this modification of Monte Pythoin was originally set up. The '2cosmos
 likelihood of this analysis ('montepython/likelihoods/kids450_cf_2cosmos_likelihood_public') 
 is provided with this public release and shall serve as an example for writing 
 your own '2cosmos' likelihoods (refer also to the README of that likelihood).
+
+If you publish results based on using Monte Python 2cosmos, please consider 
+citing `Köhlinger et al. 2019 (arXiv:1809.01406) <http://adsabs.harvard.edu/abs/2018arXiv180901406K>`
+and please cite the original Monte Python release paper by B. Audren et al.
+(see the tail of this document).
 
 IMPORTANT
 ---------
