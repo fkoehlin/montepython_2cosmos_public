@@ -1,0 +1,7 @@
+# Specify as many rows as z-bins used in analysis (for fiducial KiDS-450 analysis there are four z-bins).
+# Then specify min/max values of xi_p/m per column (in arcmin):
+# min(xi_p), max(xi_p); min(xi_m), max(xi_m)
+0.	0.	0.	0.
+0.	0.	0.	0.
+0.70	51	6.00    220
+0.	0.	0.	0.

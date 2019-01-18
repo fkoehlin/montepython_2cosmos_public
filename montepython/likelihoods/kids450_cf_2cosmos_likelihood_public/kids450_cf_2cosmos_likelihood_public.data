@@ -1,0 +1,139 @@
+#####################################################################
+# Data and precision parameters for the KiDS-450 correlation        #
+# function '2cosmo' likelihood that allows to split the KiDS-450    #
+# dataset into two mutually exclusive subsets with independent      #
+# cosmological parameters and calculations. The subsets are still   #
+# coupled through the joint covariance matrix.                      #
+#                                                                   #
+# To be used with data from Hildebrandt et al. 2017 (MNRAS, 465,    #
+# 1454; arXiv:1606.05338) available from:                           #
+# http://kids.strw.leidenuniv.nl/sciencedata.php                    #
+#                                                                   #
+# Please refer to Koehlinger et al. 2019 (MNRAS, XXX, YYYY;         #
+# arXiv:1809.01406) for the application of this likelihood.         #
+#                                                                   #
+# ATTENTION:                                                        #
+# 1) This likelihood does NOT work with the standard Monte Python   #
+# but requires the modified '2cosmo' version available from:        #
+#                                                                   #
+# https://github.com/fkoehlin/montepython_2cosmos_public            #
+#                                                                   #
+# 2) This likelihood only produces valid results for \Omega_k = 0,  #
+# i.e. flat cosmologies!                                            #
+#####################################################################
+
+# Set the path to the folder 'KiDS-450_COSMIC_SHEAR_DATA_RELEASE' from the uncompressed tarball
+# downloaded from http://kids.strw.leidenuniv.nl/sciencedata.php
+#kids450_cf_2cosmos_likelihood_public.data_directory = '/your/path/to/KiDS-450_COSMIC_SHEAR_DATA_RELEASE/'
+kids450_cf_2cosmos_likelihood_public.data_directory = '/Users/fkoehlin/kids450/data/correlation_functions/raw/KiDS-450_COSMIC_SHEAR_DATA_RELEASE/'
+
+
+# Details for dn/dz-file:
+# choose calibration method: CC or DIR
+default: 'DIR'
+kids450_cf_2cosmos_likelihood_public.nz_method = 'DIR'
+# number of discrete z values used in all integrations (can be set to arbitrary number)
+# default (=resolution of hostogram): 70
+kids450_cf_2cosmos_likelihood_public.nzmax = 70
+
+# set to "True" if you want to marginalize over the uncertainty of the
+# multiplicative shear calibration:
+# default: True
+kids450_cf_2cosmos_likelihood_public.marginalize_over_multiplicative_bias_uncertainty = True
+# supply error for m-correction:
+# default: 0.01
+kids450_cf_2cosmos_likelihood_public.err_multiplicative_bias = 0.01
+
+# Set flag to use angular mask (to cut on theta-scales per z-bin)
+# default: True
+# (since we load the data vector and covariance matrix for all measured scales.)
+kids450_cf_2cosmos_likelihood_public.use_cut_theta = True
+# if True, select a cut scheme (ATTENTION: these files must be copied to
+# '/your/path/to/KiDS-450_COSMIC_SHEAR_DATA_RELEASE/CUT_VALUES/'):
+# the splits applied in Koehlinger et al. (2019) were the following ones:
+# 1) large angular scales vs. small angular scales:
+#kids450_cf_2cosmos_likelihood_public.cutvalues_file1 = 'cut_values_large_scales.txt'
+#kids450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_small_scales.txt'
+# 2) xi_p vs. xi_m:
+#kids450_cf_2cosmos_likelihood_public.cutvalues_file1 = 'cut_values_xi_p.txt'
+#kids450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_xi_m.txt'
+# 3) z-bin{1, 2, 3, 4} (incl. all its cross-correlations) vs. all other z-bin correlations:
+kids450_cf_2cosmos_likelihood_public.cutvalues_file1 = 'cut_values_fiducial.txt'
+kids450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_zbin1.txt'
+#kids450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_zbin2.txt'
+#kids450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_zbin3.txt'
+#kids450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_zbin4.txt'
+# IMPORTANT: for cases 1) and 2) you must set the following flag to 'False'!
+# For case 3), however, you must set the flag to 'True', so that mask2 is
+# subtracted from mask1, e.g.:
+# mask1 = cut_values_fiducial.txt
+# mask2 = cut_values_zbin1.txt
+# --> modified mask1 contains all other z-bin combos and mask2 all with z-bin1
+#kids450_cf_2cosmos_likelihood_public.subtract_mask2_from_mask1 = False
+kids450_cf_2cosmos_likelihood_public.subtract_mask2_from_mask1 = True
+
+# set flag to marginalize over bootstrap errors of n(z):
+# default: True
+kids450_cf_2cosmos_likelihood_public.bootstrap_photoz_errors = True
+
+# if above flag is set to True, then specify lowest and highest index of bootstrap realizations
+# full range:
+kids450_cf_2cosmos_likelihood_public.index_bootstrap_low = 1
+kids450_cf_2cosmos_likelihood_public.index_bootstrap_high = 1000
+
+# maximum l for C_l
+# default: 60000
+kids450_cf_2cosmos_likelihood_public.lmax = 60000
+# logarithmic l step for C_l
+# default: 0.4
+kids450_cf_2cosmos_likelihood_public.dlnl = 0.4
+
+# parameters controlling the precision of the integral
+# for the correlation function (int l C_l J(x))
+# through the stepsize of x == l * theta
+# (this also controls the speed of the likelihood,
+# since this integral is the bottleneck)
+kids450_cf_2cosmos_likelihood_public.xmax = 50.
+kids450_cf_2cosmos_likelihood_public.dx_below_threshold = 0.05
+kids450_cf_2cosmos_likelihood_public.dx_above_threshold = 0.15
+kids450_cf_2cosmos_likelihood_public.dx_threshold = 0.4
+
+# precision of the Bessel integration
+kids450_cf_2cosmos_likelihood_public.dlntheta = 0.25
+kids450_cf_2cosmos_likelihood_public.dx = 0.02
+kids450_cf_2cosmos_likelihood_public.xstop = 200.0
+
+# k_max in h/Mpc
+# (should be increased when using less conservative cut scheme)
+kids450_cf_2cosmos_likelihood_public.k_max_h_by_Mpc = 100.0
+
+# Choose method for calculating non-linear corrections for P(k, z)
+# default: 'halofit'
+kids450_cf_2cosmos_likelihood_public.method_non_linear_Pk = 'halofit'
+
+# choose a baryonic feedback model: 'REF', 'AGN', 'DBLIM' (used in OWLS);
+# has only an effect if 'A_bary' is in list of nuisances!
+# default: 'AGN'
+kids450_cf_2cosmos_likelihood_public.baryon_model = 'AGN'
+
+# this allows to marginalize over a free baryon feedback amplitude A_bary:
+#kids450_cf_2cosmos_likelihood_public.use_nuisance = ['A_bary']
+
+# this allows to include IA:
+# if only 'amp_IA' is passed, 'exp_IA' = 0 (i.e. redshift-scaling is turned off!)
+# default: only use A_IA
+#kids450_cf_2cosmos_likelihood_public.use_nuisance = ['A_IA', 'exp_IA']
+#kids450_cf_2cosmos_likelihood_public.use_nuisance = ['A_IA']
+
+# combine all nuisance parameters in one list for marginalization:
+# default: A_bary_1, A_bary_2, A_IA_1, A_IA_2
+kids450_cf_2cosmos_likelihood_public.use_nuisance = ['A_bary_1', 'A_bary_2', 'A_IA_1', 'A_IA_2']
+
+# if you want to use/marginalize over the same nuisance parameters for both data
+# splits (i.e. one
+# parameter for both data splits instead of two independent parameters per
+# split), set this flag to 'True':
+# default: False
+kids450_cf_2cosmos_likelihood_public.use_joint_nuisance = False
+# this is what 'use_nuisance' should look like if use_joint_nuisance = True:
+#kids450_cf_2cosmos_likelihood_public.use_nuisance = ['A_bary', 'A_IA']
