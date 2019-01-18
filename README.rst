@@ -15,9 +15,9 @@ respective parameters within the same likelihood. The use case for this is the
 evaluation of a likelihood using correlated datasets (e.g. mutually exclusive 
 subsets of the same dataset for which one wants to take into account all 
 correlations between the subsets). An example for such a use case is the 
-analysis of [Köhlinger et al. 2019 (arXiv:1809.01406)](http://adsabs.harvard.edu/abs/2018arXiv180901406K) 
+analysis of `Köhlinger et al. 2019 (arXiv:1809.01406) <http://adsabs.harvard.edu/abs/2018arXiv180901406K>` 
 for which this modification of Monte Pythoin was originally set up. The '2cosmos'
-likelihood of this analysis (`montepython/likelihoods/kids450_cf_2cosmos_likelihood_public`) 
+likelihood of this analysis ('montepython/likelihoods/kids450_cf_2cosmos_likelihood_public') 
 is provided with this public release and shall serve as an example for writing 
 your own '2cosmos' likelihoods (refer also to the README of that likelihood).
 
