@@ -13,12 +13,15 @@
 # for the COSMOS).
 #
 # Adjusted for KiDS-450 correlation function data from Hildebrandt
-# et al. 2017 (arXiv:1606.05338) and extended to account for
+# et al. 2017 (MNRAS, 465, 1454) and extended to account for
 # mutually exclusive but correlated data splits by Fabian Koehlinger.
-# Please refer to Koehlinger et al. 2019 (MNRAS, XXX,
-# YYYY; arXiv:1809.01406) for the application of this likelihood.
 #
-# Data available at: http://kids.strw.leidenuniv.nl/sciencedata.php
+# Please refer to Koehlinger et al. 2019 (MNRAS, 484, 3126) for the
+# application of this likelihood.
+#
+# Data available from:
+#
+# http://kids.strw.leidenuniv.nl/sciencedata.php
 #
 # ATTENTION:
 # 1) This likelihood does NOT work with the standard Monte Python

@@ -6,11 +6,12 @@
 # coupled through the joint covariance matrix.                      #
 #                                                                   #
 # To be used with data from Hildebrandt et al. 2017 (MNRAS, 465,    #
-# 1454; arXiv:1606.05338) available from:                           #
+# 1454) available from:                                             #
+#                                                                   #
 # http://kids.strw.leidenuniv.nl/sciencedata.php                    #
 #                                                                   #
-# Please refer to Koehlinger et al. 2019 (MNRAS, XXX, YYYY;         #
-# arXiv:1809.01406) for the application of this likelihood.         #
+# Please refer to Koehlinger et al. 2019 (MNRAS, 484, 3126) for the #
+# application of this likelihood.                                   #
 #                                                                   #
 # ATTENTION:                                                        #
 # 1) This likelihood does NOT work with the standard Monte Python   #
@@ -22,19 +23,34 @@
 # i.e. flat cosmologies!                                            #
 #####################################################################
 
+### GENERAL SETTINGS ###
+
+## DATA LOCATION ##
+
 # Set the path to the folder 'KiDS-450_COSMIC_SHEAR_DATA_RELEASE' from the uncompressed tarball
 # downloaded from http://kids.strw.leidenuniv.nl/sciencedata.php
-#kids450_cf_2cosmos_likelihood_public.data_directory = '/your/path/to/KiDS-450_COSMIC_SHEAR_DATA_RELEASE/'
-kids450_cf_2cosmos_likelihood_public.data_directory = '/Users/fkoehlin/kids450/data/correlation_functions/raw/KiDS-450_COSMIC_SHEAR_DATA_RELEASE/'
+kids450_cf_2cosmos_likelihood_public.data_directory = '/your/path/to/KiDS-450_COSMIC_SHEAR_DATA_RELEASE/'
 
+## REDSHIFT DISTRIBUTIONS ##
 
-# Details for dn/dz-file:
-# choose calibration method: CC or DIR
+# choose the calibration method for the redshift distributions from
+# ['DIR', 'CC'], refer to the tarball's README for details!
 default: 'DIR'
 kids450_cf_2cosmos_likelihood_public.nz_method = 'DIR'
-# number of discrete z values used in all integrations (can be set to arbitrary number)
-# default (=resolution of hostogram): 70
+
+# number of discrete z-values used for all integrations, can be set to arbitrary numbers now
+# default ( = resolution of histogram): 70
 kids450_cf_2cosmos_likelihood_public.nzmax = 70
+
+# set flag to marginalize over bootstrap errors of n(z) (only possible for 'DIR'):
+# default: True
+kids450_cf_2cosmos_likelihood_public.bootstrap_photoz_errors = True
+# if above flag is set to True, then specify lowest and highest index of bootstrap realizations
+# full range: ..._low = 1 and ..._high = 1000
+kids450_cf_2cosmos_likelihood_public.index_bootstrap_low = 1
+kids450_cf_2cosmos_likelihood_public.index_bootstrap_high = 1000
+
+## SHEAR CALIBRATION UNCERTAINTY ##
 
 # set to "True" if you want to marginalize over the uncertainty of the
 # multiplicative shear calibration:
@@ -44,13 +60,16 @@ kids450_cf_2cosmos_likelihood_public.marginalize_over_multiplicative_bias_uncert
 # default: 0.01
 kids450_cf_2cosmos_likelihood_public.err_multiplicative_bias = 0.01
 
+## MASKING ##
+
 # Set flag to use angular mask (to cut on theta-scales per z-bin)
 # default: True
-# (since we load the data vector and covariance matrix for all measured scales.)
+# (since we load the data vector and covariance matrix for all measured scales)
 kids450_cf_2cosmos_likelihood_public.use_cut_theta = True
-# if True, select a cut scheme (ATTENTION: these files must be copied to
-# '/your/path/to/KiDS-450_COSMIC_SHEAR_DATA_RELEASE/CUT_VALUES/'):
-# the splits applied in Koehlinger et al. (2019) were the following ones:
+# if True, select a cut scheme from the folder
+# 'data_directory/CUT_VALUES/'(ATTENTION: you must copy that folder manually to
+# 'data_directory/'!):
+# the splits applied in Koehlinger et al. 2019 were the following ones:
 # 1) large angular scales vs. small angular scales:
 #kids450_cf_2cosmos_likelihood_public.cutvalues_file1 = 'cut_values_large_scales.txt'
 #kids450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_small_scales.txt'
@@ -72,18 +91,13 @@ kids450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_zbin1.txt'
 #kids450_cf_2cosmos_likelihood_public.subtract_mask2_from_mask1 = False
 kids450_cf_2cosmos_likelihood_public.subtract_mask2_from_mask1 = True
 
-# set flag to marginalize over bootstrap errors of n(z):
-# default: True
-kids450_cf_2cosmos_likelihood_public.bootstrap_photoz_errors = True
+## PRECISION SETTINGS ##
 
-# if above flag is set to True, then specify lowest and highest index of bootstrap realizations
-# full range:
-kids450_cf_2cosmos_likelihood_public.index_bootstrap_low = 1
-kids450_cf_2cosmos_likelihood_public.index_bootstrap_high = 1000
-
+# these settings set the precision of the Cl integration
 # maximum l for C_l
 # default: 60000
 kids450_cf_2cosmos_likelihood_public.lmax = 60000
+
 # logarithmic l step for C_l
 # default: 0.4
 kids450_cf_2cosmos_likelihood_public.dlnl = 0.4
@@ -93,40 +107,53 @@ kids450_cf_2cosmos_likelihood_public.dlnl = 0.4
 # through the stepsize of x == l * theta
 # (this also controls the speed of the likelihood,
 # since this integral is the bottleneck)
+# default: 50.
 kids450_cf_2cosmos_likelihood_public.xmax = 50.
+# default: 0.05
 kids450_cf_2cosmos_likelihood_public.dx_below_threshold = 0.05
+# default: 0.15
 kids450_cf_2cosmos_likelihood_public.dx_above_threshold = 0.15
+# default: 0.4
 kids450_cf_2cosmos_likelihood_public.dx_threshold = 0.4
-
-# precision of the Bessel integration
+# default: 0.25
 kids450_cf_2cosmos_likelihood_public.dlntheta = 0.25
-kids450_cf_2cosmos_likelihood_public.dx = 0.02
-kids450_cf_2cosmos_likelihood_public.xstop = 200.0
 
-# k_max in h/Mpc
-# (should be increased when using less conservative cut scheme)
-kids450_cf_2cosmos_likelihood_public.k_max_h_by_Mpc = 100.0
+## METHOD FOR NON-LINEAR CORRECTIONS ##
 
-# Choose method for calculating non-linear corrections for P(k, z)
-# default: 'halofit'
+# choose the method for calculation of non-linear corrections, any CLASS keyword
+# is possible, but the default choice is: 'halofit'
 kids450_cf_2cosmos_likelihood_public.method_non_linear_Pk = 'halofit'
 
-# choose a baryonic feedback model: 'REF', 'AGN', 'DBLIM' (used in OWLS);
-# has only an effect if 'A_bary' is in list of nuisances!
+# scale k_max (in h/Mpc) up to which the non-linear corrections (of the matter
+# power spectrum) are used/trusted (set to zero for k > k_max):
+# default: 100.
+kids450_cf_2cosmos_likelihood_public.k_max_h_by_Mpc = 100.
+
+
+### NUISANCE PARAMETERS ###
+
+## BARYON FEEDBACK ##
+
+# choose a baryonic feedback model (from OWLS): 'REF', 'AGN', 'DBLIM'
 # default: 'AGN'
 kids450_cf_2cosmos_likelihood_public.baryon_model = 'AGN'
-
 # this allows to marginalize over a free baryon feedback amplitude A_bary:
-#kids450_cf_2cosmos_likelihood_public.use_nuisance = ['A_bary']
+# (i.e. it is simply modifying the amplitude set by the chosen model)
+# default: ['A_bary1', 'A_bary2']
+#kids450_cf_2cosmos_likelihood_public.use_nuisance = ['A_bary_1', 'A_bary_2']
+
+## INTRINSIC ALIGNMENTS (IA) ###
 
 # this allows to include IA:
 # if only 'amp_IA' is passed, 'exp_IA' = 0 (i.e. redshift-scaling is turned off!)
-# default: only use A_IA
-#kids450_cf_2cosmos_likelihood_public.use_nuisance = ['A_IA', 'exp_IA']
-#kids450_cf_2cosmos_likelihood_public.use_nuisance = ['A_IA']
+# default: only use ['A_IA'] per split
+#kids450_cf_2cosmos_likelihood_public.use_nuisance = ['A_IA_1', 'exp_IA_1', 'A_IA_2', 'exp_IA_2']
+#kids450_cf_2cosmos_likelihood_public.use_nuisance = ['A_IA_1', 'A_IA_2']
+
+## FULL LIST OF ALL NUISANCES ##
 
 # combine all nuisance parameters in one list for marginalization:
-# default: A_bary_1, A_bary_2, A_IA_1, A_IA_2
+# default: [A_bary_1, A_bary_2, A_IA_1, A_IA_2]
 kids450_cf_2cosmos_likelihood_public.use_nuisance = ['A_bary_1', 'A_bary_2', 'A_IA_1', 'A_IA_2']
 
 # if you want to use/marginalize over the same nuisance parameters for both data
@@ -136,4 +163,5 @@ kids450_cf_2cosmos_likelihood_public.use_nuisance = ['A_bary_1', 'A_bary_2', 'A_
 # default: False
 kids450_cf_2cosmos_likelihood_public.use_joint_nuisance = False
 # this is what 'use_nuisance' should look like if use_joint_nuisance = True:
+# (i.e. no subscripts for common nuisances!)
 #kids450_cf_2cosmos_likelihood_public.use_nuisance = ['A_bary', 'A_IA']
