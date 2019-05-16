@@ -84,8 +84,12 @@ def initialise(custom_command=''):
             io_mp.create_output_files(command_line, data)
         # NS: Creating the NS subfolder and the MultiNest arguments
         elif command_line.method == 'NS':
-            from nested_sampling import initialise as initialise_ns
-            initialise_ns(cosmo1, cosmo2, data, command_line)
+            from MultiNest import initialise as initialise_mn
+            initialise_mn(cosmo1, cosmo2, data, command_line)
+        # PC: Creating the PC subfolder and the PolyChord arguments
+        elif command_line.method == 'PC':
+            from PolyChord import initialise as initialise_pc
+            initialise_pc(cosmo1, cosmo2, data, command_line)
 
         return cosmo1, cosmo2, data, command_line, True
 
@@ -176,7 +180,7 @@ def recover_cosmological_module(data):
                 "You must have compiled the classy.pyx file. Please go to " +
                 "/path/to/class/python and run the command\n " +
                 "python setup.py build")
-        
+
         # FK: we need two independent instances of Class!
         cosmo1 = Class()
         cosmo2 = Class()

@@ -1,5 +1,5 @@
 """
-.. module:: nested_sampling
+.. module:: MultiNest
     :synopsis: Interface the MultiNest program with Monte Python
 
 This implementation relies heavily on the existing Python wrapper for
@@ -8,7 +8,7 @@ this address <https://github.com/JohannesBuchner/PyMultiNest>`_ .
 
 The main routine, :func:`run`, truly interfaces the two codes. It takes for
 input the cosmological module, data and command line. It then defines
-internally two functions, :func:`prior() <nested_sampling.prior>` and
+internally two functions, :func:`prior() <MultiNest.prior>` and
 :func:`loglike` that will serve as input for the run function of PyMultiNest.
 
 .. moduleauthor:: Jesus Torrado <torradocacho@lorentz.leidenuniv.nl>
@@ -132,6 +132,8 @@ def initialise(cosmo1, cosmo2, data, command_line):
     # Use chain name as a base name for MultiNest files
     chain_name = [a for a in command_line.folder.split(os.path.sep) if a][-1]
     base_name = os.path.join(NS_folder, chain_name)
+    # FK: add base_name to NS_arguments for later reference
+    data.NS_arguments['base_dir'] = base_name
 
     # Prepare arguments for PyMultiNest
     # -- Automatic arguments
@@ -279,11 +281,17 @@ def run(cosmo1, cosmo2, data, command_line):
     # Assuming this worked, i.e. if output is `None`,
     # state it and suggest the user to analyse the output.
     if output is None:
-        warnings.warn('The sampling with MultiNest is done.\n' +
-                      'You can now analyse the output calling Monte Python ' +
-                      ' with the -info flag in the chain_name/NS subfolder,' +
-                      'or, if you used multimodal sampling, in the ' +
-                      'chain_name/mode_# subfolders.')
+        # FK: write out the warning message below also as a file in the NS-subfolder
+        # so that there's a clear indication for convergence instead of just looking at
+        # the STDOUT-log!
+        text = 'The sampling with MultiNest is done.\n' + \
+               'You can now analyse the output calling Monte Python ' + \
+               'with the -info flag in the chain_name/NS subfolder,' + \
+               'or, if you used multimodal sampling, in the ' + \
+               'chain_name/mode_# subfolders.'
+        fname = os.path.join(data.NS_arguments['base_dir'], 'convergence.txt')
+        with open(fname, 'w') as afile:
+            afile.write(text)
 
 
 def from_NS_output_to_chains(folder):
@@ -340,6 +348,15 @@ def from_NS_output_to_chains(folder):
         if pre in line:
             if line.strip()[0] == '#':
                 continue
+
+            # These lines allow MultiNest to deal with fixed nuisance parameters 
+            sigma = float(line.split(',')[3].strip())
+            if sigma == 0.0:
+                #If derived parameter, keep it, else discard it:                                 
+                paramtype = line.split(',')[5].strip()[1:-2]
+                if paramtype != 'derived':
+                    continue
+
             param_name = line.split('=')[0][line.find(pre)+len(pre):
                                             line.find(pos)]
             param_name = param_name.replace('"','').replace("'",'').strip()

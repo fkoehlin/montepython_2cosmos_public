@@ -15,6 +15,7 @@ import re
 import io_mp  # Needs to talk to io_mp.py file for the logging
                                # of parameters
 import prior
+from scipy.optimize import fsolve
 
 # A modified version of Python dictionary in order to keep track of the order
 # in it (much the same as in an array). In case an older version of Python is
@@ -139,7 +140,7 @@ class Data(object):
         # FK: we need now two versions for each cosmological instance:
         self.cosmo1_arguments = {}
         self.cosmo2_arguments = {}
-        
+
         """
         Simple dictionary that will serve as a communication interface with the
         cosmological code. It contains all the parameters for the code that
@@ -165,6 +166,17 @@ class Data(object):
         Dictionary containing the parameters needed by the PyMultiNest sampler.
         It is filled just before the run of the sampler.  Those parameters not
         defined will be set to the default value of PyMultiNest.
+
+        :rtype: dict
+        """
+
+        # Arguments for PyPolyChord
+        self.PC_param_names = []
+        self.PC_arguments = {}
+        """
+        Dictionary containing the parameters needed by the PyPolyChord sampler.
+        It is filled just before the run of the sampler.  Those parameters not
+        defined will be set to the default value of PyPolyChord.
 
         :rtype: dict
         """
@@ -219,7 +231,7 @@ class Data(object):
             self.cosmological_module_name = 'CLASS'
         else:
             self.cosmological_module_name = None
-            
+
         # check for MPI
         try:
             from mpi4py import MPI
@@ -313,7 +325,7 @@ class Data(object):
         """
 
         self.need_cosmo1_update = True
-        self.need_cosmo2_update = True 
+        self.need_cosmo2_update = True
         """
         `added in version 1.1.1`. It stores the truth value of whether the
         cosmological block of parameters was changed from one step to another.
@@ -405,6 +417,15 @@ class Data(object):
         # Finally create all the instances of the Parameter given the input.
         for key, value in self.parameters.iteritems():
             self.mcmc_parameters[key] = Parameter(value, key)
+
+            # When there is no prior edge requested, the syntax consists in setting it to 'None' in the input file.
+            # There is also an old syntax which is deprecated: '-1'.
+            # We still allow for that, but just after parsing it, we substitute it with 'None'.
+            # When the user really wants a prior edge in -1, he can write -1.0, then the next lines will not substitute it.
+            for i in [1,2]:
+                if (str(self.mcmc_parameters[key]['initial'][i]) == '-1'):
+                    self.mcmc_parameters[key]['initial'][i] = None
+
         """
         Transform from parameters dictionary to mcmc_parameters dictionary of
         instances from the class :class:`parameter` (inheriting from dict)
@@ -697,7 +718,7 @@ class Data(object):
         cosmo2_names = self.get_mcmc_parameters(['cosmo2'])
 
         need_change = 0
-        
+
         # For all elements in the varying parameters:
         for elem in parameter_names:
             i = parameter_names.index(elem)
@@ -705,11 +726,11 @@ class Data(object):
             if elem in cosmo1_names:
                 if self.mcmc_parameters[elem]['current'] != new_step[i]:
                     need_change += 1
-            
+
             if elem in cosmo2_names:
                 if self.mcmc_parameters[elem]['current'] != new_step[i]:
                     need_change += 1
-            
+
         # If any cosmological value was changed,
         if need_change > 0:
             self.need_cosmo1_update = True
@@ -778,42 +799,140 @@ class Data(object):
         # The try: except: syntax ensures that the first call
         for elem in self.get_mcmc_parameters(['cosmo1']):
             # infer h from Omega_Lambda and delete Omega_Lambda
-            if elem[:-2] == 'Omega_Lambda':
+            if elem == 'Omega_Lambda':
                 omega_b = self.cosmo1_arguments['omega_b']
                 omega_cdm = self.cosmo1_arguments['omega_cdm']
                 Omega_Lambda = self.cosmo1_arguments['Omega_Lambda']
                 self.cosmo1_arguments['h'] = math.sqrt(
                     (omega_b+omega_cdm) / (1.-Omega_Lambda))
-                del self.cosmo1_arguments[elem[:-2]]
+                del self.cosmo1_arguments[elem]
             # infer omega_cdm from Omega_L and delete Omega_L
-            elif elem[:-2] == 'Omega_L':
+            elif elem == 'Omega_L':
                 omega_b = self.cosmo1_arguments['omega_b']
                 h = self.cosmo1_arguments['h']
                 Omega_L = self.cosmo1_arguments['Omega_L']
                 self.cosmo1_arguments['omega_cdm'] = (1.-Omega_L)*h*h-omega_b
-                del self.cosmo1_arguments[elem[:-2]]
-            elif elem[:-2] == 'ln10^{10}A_s':
+                del self.cosmo1_arguments[elem]
+            # infer omega_cdm from omega_m (assuming one standard massive neutrino and omega_nu=m_nu/93.14) and delete omega_m
+            elif elem == 'omega_m':
+                omega_b = self.cosmo1_arguments['omega_b']
+                omega_m = self.cosmo1_arguments['omega_m']
+                try:
+                    omega_nu = self.cosmo1_arguments['m_ncdm'] / 93.14
+                except:
+                    omega_nu = 0.
+                self.cosmo1_arguments['omega_cdm'] = omega_m - omega_b - omega_nu
+                del self.cosmo1_arguments[elem]
+            elif elem == 'ln10^{10}A_s':
                 self.cosmo1_arguments['A_s'] = math.exp(
-                    self.cosmo1_arguments[elem[:-2]]) / 1.e10
-                del self.cosmo1_arguments[elem[:-2]]
-            elif elem[:-2] == 'exp_m_2_tau_As':
+                    self.cosmo1_arguments[elem]) / 1.e10
+                del self.cosmo1_arguments[elem]
+            elif elem == 'exp_m_2_tau_As':
                 tau_reio = self.cosmo1_arguments['tau_reio']
-                self.cosmo1_arguments['A_s'] = self.cosmo1_arguments[elem[:-2]] * \
+                self.cosmo1_arguments['A_s'] = self.cosmo1_arguments[elem] * \
                     math.exp(2.*tau_reio)
-                del self.cosmo1_arguments[elem[:-2]]
-            elif elem[:-2] == 'f_cdi':
+                del self.cosmo1_arguments[elem]
+            elif elem == 'f_cdi':
                 self.cosmo1_arguments['n_cdi'] = self.cosmo1_arguments['n_s']
-            elif elem[:-2] == 'beta':
+            elif elem == 'beta':
                 self.cosmo1_arguments['alpha'] = 2.*self.cosmo1_arguments['beta']
-            elif elem[:-2] == 'M_tot':
-                self.cosmo1_arguments['m_ncdm'] = self.cosmo1_arguments['M_tot']/3.
-                del self.cosmo1_arguments[elem[:-2]]
+            elif elem == 'M_tot_NH' or elem == '{\sum}m_nu_NH':
+                # By T. Brinckmann
+                # Normal hierarchy massive neutrinos. Calculates the individual
+                # neutrino masses from M_tot_NH and deletes M_tot_NH
+                if not self.cosmo1_arguments['N_ncdm'] == 3:
+                    raise ValueError(
+                        "N_ncdm is not equal to 3."
+                        " This value should be exactly 3.")
+                # From Esteban et al. 2016: https://arxiv.org/abs/1611.01514
+                delta_m_squared_atm=2.524e-3 #2.45e-3
+                delta_m_squared_sol=7.50e-5 #7.50e-5
+                #m1_func = lambda m1, M_tot, d_m_sq_atm, d_m_sq_sol: M_tot**2. + 0.5*d_m_sq_sol - d_m_sq_atm + m1**2. - 2.*M_tot*m1 - 2.*M_tot*(d_m_sq_sol+m1**2.)**0.5 + 2.*m1*(d_m_sq_sol+m1**2.)**0.5
+                m1_func = lambda m1, M_tot, d_m_sq_atm, d_m_sq_sol: M_tot - m1 - (d_m_sq_sol + m1**2.)**0.5 - (d_m_sq_atm + m1**2.)**0.5
+                m1,opt_output,success,output_message = fsolve(m1_func,self.cosmo1_arguments[elem]/3.,(self.cosmo1_arguments[elem],delta_m_squared_atm,delta_m_squared_sol),full_output=True)
+                if not success == 1:
+                    raise ValueError(
+                        "Failed to estimate m1. Reason: "+output_message+
+                        " Exiting run.")
+                m1 = m1[0]
+                m2 = (delta_m_squared_sol + m1**2.)**0.5
+                #m3 = (delta_m_squared_atm + 0.5*(m2**2. + m1**2.))**0.5
+                m3 = (delta_m_squared_atm + m1**2.)**0.5
+                if m1+m2+m3 > self.cosmo1_arguments[elem]+0.001*self.cosmo1_arguments[elem]:
+                    raise ValueError(
+                        "Failed to estimate m1 resulting in sum(m_i) > M_tot."
+                        " Exiting run.")
+                self.cosmo1_arguments['m_ncdm'] = r'%g, %g, %g' % (m1,m2,m3)
+                del self.cosmo1_arguments[elem]
+            elif elem == 'M_tot_IH'or elem == '{\sum}m_nu_IH':
+                # By T. Brinckmann
+                # Inverted hierarchy massive neutrinos. Calculates the individual
+                # neutrino masses from M_tot_IH and deletes M_tot_IH
+                if not self.cosmo1_arguments['N_ncdm'] == 3:
+                    raise ValueError(
+                        "N_ncdm is not equal to 3."
+                        " This value should be exactly 3.")
+                # From Esteban et al. 2016: https://arxiv.org/abs/1611.01514
+                delta_m_squared_atm=-2.514e-3 #-2.45e-3
+                delta_m_squared_sol=7.50e-5 #7.50e-5
+                #m1_func = lambda m1, M_tot, d_m_sq_atm, d_m_sq_sol: M_tot**2. + 0.5*d_m_sq_sol - d_m_sq_atm + m1**2. - 2.*M_tot*m1 - 2.*M_tot*(d_m_sq_sol+m1**2.)**0.5 + 2.*m1*(d_m_sq_sol+m1**2.)**0.5
+                m1_func = lambda m1, M_tot, d_m_sq_atm, d_m_sq_sol: M_tot - m1 - (d_m_sq_sol + m1**2.)**0.5 - (abs(d_m_sq_atm + d_m_sq_sol + m1**2.))**0.5
+                m1,opt_output,success,output_message = fsolve(m1_func,self.cosmo1_arguments[elem]/2.,(self.cosmo1_arguments[elem],delta_m_squared_atm,delta_m_squared_sol),full_output=True)
+                if not success == 1:
+                    raise ValueError(
+                        "Failed to estimate m1. Reason: "+output_message+
+                        " Exiting run.")
+                m1 = m1[0]
+                m2 = (delta_m_squared_sol + m1**2.)**0.5
+                #m3 = (delta_m_squared_atm + 0.5*(m2**2. + m1**2.))**0.5
+                m3 = (delta_m_squared_atm + m2**2.)**0.5
+                if m1+m2+m3 > self.cosmo1_arguments[elem]+0.001*self.cosmo1_arguments[elem]:
+                    raise ValueError(
+                        "Failed to estimate m1 resulting in sum(m_i) > M_tot."
+                        "Exiting run.")
+                if delta_m_squared_atm + delta_m_squared_sol + m1**2. < 0.:
+                    raise ValueError(
+                        "Failed to correctly estimate m1. Found m1^2 = %f < %f,"
+                        "but m1^2 should always be greater than this value." % (m1**2.,- delta_m_squared_sol - delta_m_squared_atm))
+                self.cosmo1_arguments['m_ncdm'] = r'%g, %g, %g' % (m1,m2,m3)
+                del self.cosmo1_arguments[elem]
+            elif elem == 'M_tot' or elem == '{\sum}m_nu':
+                # By T. Brinckmann
+                # Massive neutrinos with identical non-zero mass. Calculates the
+                # individual neutrino masses from M_tot and deletes M_tot
+                if not self.cosmo1_arguments['N_ncdm'] == 1:
+                    raise ValueError(
+                        "N_ncdm is not equal to 1."
+                        " This value should be exactly 1.")
+                self.cosmo1_arguments['m_ncdm'] = self.cosmo1_arguments[elem]/self.cosmo1_arguments['deg_ncdm']
+                del self.cosmo1_arguments[elem]
+            elif elem == 'm_s_eff':
+                # By T. Brinckmann
+                # conversion from effective sterile neutrino mass to physical sterile neutrino mass, assuming that this
+                # is the ncdm species number 2 and that it is Dodelson-Widrow like (i.e same temperature as active neutrinos)
+                #print self.cosmo_arguments
+                #self.cosmo_arguments['m_ncdm__2'] = self.cosmo_arguments['deg_ncdm__2']*self.cosmo_arguments[elem]
+                m_s_eff = self.cosmo1_arguments[elem]/self.cosmo1_arguments['deg_ncdm__2']
+                self.cosmo1_arguments['m_ncdm'] = r'%g, %g' % (float(self.cosmo1_arguments['m_ncdm']), m_s_eff)
+                del self.cosmo1_arguments[elem]
+            elif elem == 'log10N_dg':
+                self.cosmo1_arguments['N_dg'] = 10**(self.cosmo1_arguments[elem])
+                del self.cosmo_arguments[elem]
+            elif elem == 'log10fn':
+                self.cosmo1_arguments['f_nadm'] = 10**(self.cosmo1_arguments[elem])
+                del self.cosmo1_arguments[elem]
+            elif elem == 'log10Gamma':
+                self.cosmo1_arguments['invtau0_nadm_dg'] = 10**(self.cosmo1_arguments[elem])
+                del self.cosmo1_arguments[elem]
+            elif elem == 'w0wa':
+                self.cosmo1_arguments['wa_fld'] = self.cosmo1_arguments[elem] - self.cosmo1_arguments['w0_fld']
+                del self.cosmo1_arguments[elem]
             # Finally, deal with all the parameters ending with __i, where i is
             # an integer. Replace them all with their name without the trailing
             # double underscore, concatenated with each other. The test is
             # always on the one ending with __1, as it will be the first on the
             # list, and deal with all the others.
-            # FK: not needed, so remove:
+            # FK: not needed, so remove
             '''
             elif re.search(r'__1', elem):
                 original_name = re.search(r'(.*)__1', elem).groups()[0]
@@ -832,7 +951,7 @@ class Data(object):
                     del self.cosmo1_arguments[
                         original_name + '__%i' % index]
             '''
-            
+
     def update_cosmo2_arguments(self):
         """
         Put in :attr:`cosmo_arguments` the current values of
@@ -873,36 +992,134 @@ class Data(object):
         # The try: except: syntax ensures that the first call
         for elem in self.get_mcmc_parameters(['cosmo2']):
             # infer h from Omega_Lambda and delete Omega_Lambda
-            if elem[:-2] == 'Omega_Lambda':
+            if elem == 'Omega_Lambda':
                 omega_b = self.cosmo2_arguments['omega_b']
                 omega_cdm = self.cosmo2_arguments['omega_cdm']
                 Omega_Lambda = self.cosmo2_arguments['Omega_Lambda']
                 self.cosmo2_arguments['h'] = math.sqrt(
                     (omega_b+omega_cdm) / (1.-Omega_Lambda))
-                del self.cosmo2_arguments[elem[:-2]]
+                del self.cosmo2_arguments[elem]
             # infer omega_cdm from Omega_L and delete Omega_L
-            elif elem[:-2] == 'Omega_L':
+            elif elem == 'Omega_L':
                 omega_b = self.cosmo2_arguments['omega_b']
                 h = self.cosmo2_arguments['h']
                 Omega_L = self.cosmo2_arguments['Omega_L']
                 self.cosmo2_arguments['omega_cdm'] = (1.-Omega_L)*h*h-omega_b
-                del self.cosmo2_arguments[elem[:-2]]
-            elif elem[:-2] == 'ln10^{10}A_s':
+                del self.cosmo2_arguments[elem]
+            # infer omega_cdm from omega_m (assuming one standard massive neutrino and omega_nu=m_nu/93.14) and delete omega_m
+            elif elem == 'omega_m':
+                omega_b = self.cosmo2_arguments['omega_b']
+                omega_m = self.cosmo2_arguments['omega_m']
+                try:
+                    omega_nu = self.cosmo2_arguments['m_ncdm'] / 93.14
+                except:
+                    omega_nu = 0.
+                self.cosmo2_arguments['omega_cdm'] = omega_m - omega_b - omega_nu
+                del self.cosmo2_arguments[elem]
+            elif elem == 'ln10^{10}A_s':
                 self.cosmo2_arguments['A_s'] = math.exp(
-                    self.cosmo2_arguments[elem[:-2]]) / 1.e10
-                del self.cosmo2_arguments[elem[:-2]]
-            elif elem[:-2] == 'exp_m_2_tau_As':
+                    self.cosmo2_arguments[elem]) / 1.e10
+                del self.cosmo2_arguments[elem]
+            elif elem == 'exp_m_2_tau_As':
                 tau_reio = self.cosmo2_arguments['tau_reio']
-                self.cosmo2_arguments['A_s'] = self.cosmo2_arguments[elem[:-2]] * \
+                self.cosmo2_arguments['A_s'] = self.cosmo2_arguments[elem] * \
                     math.exp(2.*tau_reio)
-                del self.cosmo2_arguments[elem[:-2]]
-            elif elem[:-2] == 'f_cdi':
+                del self.cosmo2_arguments[elem]
+            elif elem == 'f_cdi':
                 self.cosmo2_arguments['n_cdi'] = self.cosmo2_arguments['n_s']
-            elif elem[:-2] == 'beta':
+            elif elem == 'beta':
                 self.cosmo2_arguments['alpha'] = 2.*self.cosmo2_arguments['beta']
-            elif elem[:-2] == 'M_tot':
-                self.cosmo2_arguments['m_ncdm'] = self.cosmo2_arguments['M_tot']/3.
-                del self.cosmo2_arguments[elem[:-2]]
+            elif elem == 'M_tot_NH' or elem == '{\sum}m_nu_NH':
+                # By T. Brinckmann
+                # Normal hierarchy massive neutrinos. Calculates the individual
+                # neutrino masses from M_tot_NH and deletes M_tot_NH
+                if not self.cosmo2_arguments['N_ncdm'] == 3:
+                    raise ValueError(
+                        "N_ncdm is not equal to 3."
+                        " This value should be exactly 3.")
+                # From Esteban et al. 2016: https://arxiv.org/abs/1611.01514
+                delta_m_squared_atm=2.524e-3 #2.45e-3
+                delta_m_squared_sol=7.50e-5 #7.50e-5
+                #m1_func = lambda m1, M_tot, d_m_sq_atm, d_m_sq_sol: M_tot**2. + 0.5*d_m_sq_sol - d_m_sq_atm + m1**2. - 2.*M_tot*m1 - 2.*M_tot*(d_m_sq_sol+m1**2.)**0.5 + 2.*m1*(d_m_sq_sol+m1**2.)**0.5
+                m1_func = lambda m1, M_tot, d_m_sq_atm, d_m_sq_sol: M_tot - m1 - (d_m_sq_sol + m1**2.)**0.5 - (d_m_sq_atm + m1**2.)**0.5
+                m1,opt_output,success,output_message = fsolve(m1_func,self.cosmo2_arguments[elem]/3.,(self.cosmo2_arguments[elem],delta_m_squared_atm,delta_m_squared_sol),full_output=True)
+                if not success == 1:
+                    raise ValueError(
+                        "Failed to estimate m1. Reason: "+output_message+
+                        " Exiting run.")
+                m1 = m1[0]
+                m2 = (delta_m_squared_sol + m1**2.)**0.5
+                #m3 = (delta_m_squared_atm + 0.5*(m2**2. + m1**2.))**0.5
+                m3 = (delta_m_squared_atm + m1**2.)**0.5
+                if m1+m2+m3 > self.cosmo2_arguments[elem]+0.001*self.cosmo2_arguments[elem]:
+                    raise ValueError(
+                        "Failed to estimate m1 resulting in sum(m_i) > M_tot."
+                        " Exiting run.")
+                self.cosmo2_arguments['m_ncdm'] = r'%g, %g, %g' % (m1,m2,m3)
+                del self.cosmo2_arguments[elem]
+            elif elem == 'M_tot_IH'or elem == '{\sum}m_nu_IH':
+                # By T. Brinckmann
+                # Inverted hierarchy massive neutrinos. Calculates the individual
+                # neutrino masses from M_tot_IH and deletes M_tot_IH
+                if not self.cosmo2_arguments['N_ncdm'] == 3:
+                    raise ValueError(
+                        "N_ncdm is not equal to 3."
+                        " This value should be exactly 3.")
+                # From Esteban et al. 2016: https://arxiv.org/abs/1611.01514
+                delta_m_squared_atm=-2.514e-3 #-2.45e-3
+                delta_m_squared_sol=7.50e-5 #7.50e-5
+                #m1_func = lambda m1, M_tot, d_m_sq_atm, d_m_sq_sol: M_tot**2. + 0.5*d_m_sq_sol - d_m_sq_atm + m1**2. - 2.*M_tot*m1 - 2.*M_tot*(d_m_sq_sol+m1**2.)**0.5 + 2.*m1*(d_m_sq_sol+m1**2.)**0.5
+                m1_func = lambda m1, M_tot, d_m_sq_atm, d_m_sq_sol: M_tot - m1 - (d_m_sq_sol + m1**2.)**0.5 - (abs(d_m_sq_atm + d_m_sq_sol + m1**2.))**0.5
+                m1,opt_output,success,output_message = fsolve(m1_func,self.cosmo2_arguments[elem]/2.,(self.cosmo2_arguments[elem],delta_m_squared_atm,delta_m_squared_sol),full_output=True)
+                if not success == 1:
+                    raise ValueError(
+                        "Failed to estimate m1. Reason: "+output_message+
+                        " Exiting run.")
+                m1 = m1[0]
+                m2 = (delta_m_squared_sol + m1**2.)**0.5
+                #m3 = (delta_m_squared_atm + 0.5*(m2**2. + m1**2.))**0.5
+                m3 = (delta_m_squared_atm + m2**2.)**0.5
+                if m1+m2+m3 > self.cosmo2_arguments[elem]+0.001*self.cosmo2_arguments[elem]:
+                    raise ValueError(
+                        "Failed to estimate m1 resulting in sum(m_i) > M_tot."
+                        "Exiting run.")
+                if delta_m_squared_atm + delta_m_squared_sol + m1**2. < 0.:
+                    raise ValueError(
+                        "Failed to correctly estimate m1. Found m1^2 = %f < %f,"
+                        "but m1^2 should always be greater than this value." % (m1**2.,- delta_m_squared_sol - delta_m_squared_atm))
+                self.cosmo2_arguments['m_ncdm'] = r'%g, %g, %g' % (m1,m2,m3)
+                del self.cosmo2_arguments[elem]
+            elif elem == 'M_tot' or elem == '{\sum}m_nu':
+                # By T. Brinckmann
+                # Massive neutrinos with identical non-zero mass. Calculates the
+                # individual neutrino masses from M_tot and deletes M_tot
+                if not self.cosmo2_arguments['N_ncdm'] == 1:
+                    raise ValueError(
+                        "N_ncdm is not equal to 1."
+                        " This value should be exactly 1.")
+                self.cosmo2_arguments['m_ncdm'] = self.cosmo2_arguments[elem]/self.cosmo2_arguments['deg_ncdm']
+                del self.cosmo2_arguments[elem]
+            elif elem == 'm_s_eff':
+                # By T. Brinckmann
+                # conversion from effective sterile neutrino mass to physical sterile neutrino mass, assuming that this
+                # is the ncdm species number 2 and that it is Dodelson-Widrow like (i.e same temperature as active neutrinos)
+                #print self.cosmo_arguments
+                #self.cosmo_arguments['m_ncdm__2'] = self.cosmo_arguments['deg_ncdm__2']*self.cosmo_arguments[elem]
+                m_s_eff = self.cosmo2_arguments[elem]/self.cosmo2_arguments['deg_ncdm__2']
+                self.cosmo2_arguments['m_ncdm'] = r'%g, %g' % (float(self.cosmo2_arguments['m_ncdm']), m_s_eff)
+                del self.cosmo2_arguments[elem]
+            elif elem == 'log10N_dg':
+                self.cosmo2_arguments['N_dg'] = 10**(self.cosmo2_arguments[elem])
+                del self.cosmo_arguments[elem]
+            elif elem == 'log10fn':
+                self.cosmo2_arguments['f_nadm'] = 10**(self.cosmo2_arguments[elem])
+                del self.cosmo2_arguments[elem]
+            elif elem == 'log10Gamma':
+                self.cosmo2_arguments['invtau0_nadm_dg'] = 10**(self.cosmo2_arguments[elem])
+                del self.cosmo2_arguments[elem]
+            elif elem == 'w0wa':
+                self.cosmo2_arguments['wa_fld'] = self.cosmo2_arguments[elem] - self.cosmo2_arguments['w0_fld']
+                del self.cosmo2_arguments[elem]
             # Finally, deal with all the parameters ending with __i, where i is
             # an integer. Replace them all with their name without the trailing
             # double underscore, concatenated with each other. The test is
@@ -927,7 +1144,6 @@ class Data(object):
                     del self.cosmo2_arguments[
                         original_name + '__%i' % index]
             '''
-
     @staticmethod
     def folder_is_initialised(folder):
         """

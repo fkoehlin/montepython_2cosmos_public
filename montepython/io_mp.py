@@ -135,6 +135,13 @@ def log_parameter_names(data, command_line):
     # If N was not provided, assumes N is 10 (default value)
     if not number:
         number = data.N
+
+    # If a restart set number to correspond to new chains filename
+    if command_line.restart:
+        number += int(
+            command_line.restart.split(os.path.sep)[-1].split('__')[0].
+            split('_')[1])
+
     outname_base = '{0}_{1}_'.format(date.today(), number)
     log = open(os.path.join(command_line.folder, outname_base+'.paramnames'), 'w')
     # Create list of varying and derived parameters
@@ -278,9 +285,27 @@ def create_output_files(command_line, data):
         print 'Creating %s\n' % data.out_name
     # in case of a restart, copying the whole thing in the new file
     if command_line.restart is not None:
-        for line in open(command_line.restart, 'r'):
-            data.out.write(line)
-
+        # Construct filename of old chain from input.
+        # Will only load files with chain file suffix equal to or greater than
+        # the one passed with -r flag, e.g. <path>/1969-10-05_100000__1.txt
+        # and four MPI processes will load files 1-4 with that chainbase.
+        filebase, sep1, filesuffix = command_line.restart.partition('__')
+        chainbase, sep2, fileext = filesuffix.partition('.')
+        if command_line.chain_number is None:
+            restartname = filebase + sep1 + str(int(chainbase)+suffix-1) + sep2 + fileext
+        else:
+            restartname = filebase + sep1 + command_line.chain_number + sep2 + fileext
+        # Copy old chain to the new chain. Return error if file doesn't exist.
+        try:
+            for line in open(restartname, 'r'):
+                data.out.write(line)
+        except:
+            raise ConfigurationError('Error loading chains files. '
+                                     'Ensure number of MPI processes =< number of chains to restart, '
+                                     'and chain filename passed with -r <path/filename> corresponds to '
+                                     'the full chain name of the lowest chain suffix to restart, e.g. '
+                                     '-r <path>/1969-10-05_100000__1.txt to restart from file 1 and '
+                                     'subsequent files corresponding to the number of MPI processes.')
 
 def get_tex_name(name, number=1):
     """
@@ -317,7 +342,7 @@ def get_tex_name(name, number=1):
     if name.find("$") != -1:
         return name
     tex_greek = ['omega', 'tau', 'alpha', 'beta', 'delta', 'nu',
-                 'Omega', 'Lambda', 'lambda', 'Delta', 'mu', 'sigma', 'gamma']
+                 'Omega', 'Lambda', 'lambda', 'Delta', 'mu', 'sigma', 'gamma', 'theta']
     for elem in tex_greek:
         if elem in name:
             position = name.find(elem)
@@ -352,9 +377,9 @@ def write_covariance_matrix(covariance_matrix, names, path):
         for i in range(len(names)):
             for j in range(len(names)):
                 if covariance_matrix[i][j] > 0:
-                    cov.write(' %.5e\t' % covariance_matrix[i][j])
+                    cov.write(' %.6e\t' % covariance_matrix[i][j])
                 else:
-                    cov.write('%.5e\t' % covariance_matrix[i][j])
+                    cov.write('%.6e\t' % covariance_matrix[i][j])
             cov.write('\n')
 
 def write_bestfit_file(bestfit, names, path):
@@ -369,9 +394,9 @@ def write_bestfit_file(bestfit, names, path):
             #bfvalue = chain[a[0], 2+i]*info.scales[i, i]
             bf_value = bestfit[i]
             if bf_value > 0:
-                bestfit_file.write(' %.5e\t' % bf_value)
+                bestfit_file.write(' %.6e\t' % bf_value)
             else:
-                bestfit_file.write('%.5e\t' % bf_value)
+                bestfit_file.write('%.6e\t' % bf_value)
         bestfit_file.write('\n')
 
 

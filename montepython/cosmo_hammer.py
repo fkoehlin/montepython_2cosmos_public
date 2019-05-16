@@ -49,7 +49,7 @@ CH_user_arguments = {
      'type': int}}
 
 
-def run(cosmo, data, command_line):
+def run(cosmo1, cosmo2, data, command_line):
     """
     Sample with the CosmoHammer
 
@@ -90,7 +90,9 @@ def run(cosmo, data, command_line):
     # Add data and cosmo as two core modules. Note that the order is important
     # here, since data must be called before cosmo.
     chain.addCoreModule(data)
-    chain.addCoreModule(cosmo)
+    # not sure that this will work...
+    chain.addCoreModule(cosmo1)
+    chain.addCoreModule(cosmo2)
 
     # Add each likelihood class as a LikelihoodModule
     for likelihood in data.lkl.itervalues():
