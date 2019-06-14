@@ -382,8 +382,8 @@ def run(cosmo1, cosmo2, data, command_line):
     # FK: write out the warning message below also as a file in the PC-subfolder
     # so that there's a clear indication for convergence instead of just looking at
     # the STDOUT-log!
-    text = 'The sampling with PolyChord is done.\n' +
-           'You can now analyse the output calling Monte Python ' +
+    text = 'The sampling with PolyChord is done.\n' + \
+           'You can now analyse the output calling Monte Python ' + \
            'with the -info flag in the chain_name/PC subfolder.'
 
     warnings.warn(text)
