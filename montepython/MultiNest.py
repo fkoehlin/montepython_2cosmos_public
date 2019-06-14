@@ -133,7 +133,7 @@ def initialise(cosmo1, cosmo2, data, command_line):
     chain_name = [a for a in command_line.folder.split(os.path.sep) if a][-1]
     base_name = os.path.join(NS_folder, chain_name)
     # FK: add base_name to NS_arguments for later reference
-    data.NS_arguments['base_dir'] = base_name
+    data.NS_arguments['base_dir'] = NS_folder
 
     # Prepare arguments for PyMultiNest
     # -- Automatic arguments
@@ -168,7 +168,7 @@ def initialise(cosmo1, cosmo2, data, command_line):
         if not param in NS_param_names:
             NS_param_names.append(param)
     data.NS_param_names = NS_param_names
-            
+
     # Caveat: multi-modal sampling OFF by default; if requested, INS disabled
     try:
         if data.NS_arguments['multimodal']:
@@ -269,11 +269,16 @@ def run(cosmo1, cosmo2, data, command_line):
         # Propagate the information towards the cosmo arguments
         data.update_cosmo1_arguments()
         data.update_cosmo2_arguments()
-        
+
         lkl = sampler.compute_lkl(cosmo1, cosmo2, data)
         for i, name in enumerate(derived_param_names):
             cube[ndim+i] = data.mcmc_parameters[name]['current']
         return lkl
+
+    #FK: recover name of base folder and remove entry from dict before passing it
+    # on to MN:
+    base_dir = data.NS_arguments['base_dir']
+    del data.NS_arguments['base_dir']
 
     # Launch MultiNest, and recover the output code
     output = nested_run(loglike, prior, **data.NS_arguments)
@@ -287,9 +292,9 @@ def run(cosmo1, cosmo2, data, command_line):
         text = 'The sampling with MultiNest is done.\n' + \
                'You can now analyse the output calling Monte Python ' + \
                'with the -info flag in the chain_name/NS subfolder,' + \
-               'or, if you used multimodal sampling, in the ' + \
+               ' or, if you used multimodal sampling, in the ' + \
                'chain_name/mode_# subfolders.'
-        fname = os.path.join(data.NS_arguments['base_dir'], 'convergence.txt')
+        fname = os.path.join(base_dir, 'convergence.txt')
         with open(fname, 'w') as afile:
             afile.write(text)
 
@@ -349,10 +354,10 @@ def from_NS_output_to_chains(folder):
             if line.strip()[0] == '#':
                 continue
 
-            # These lines allow MultiNest to deal with fixed nuisance parameters 
+            # These lines allow MultiNest to deal with fixed nuisance parameters
             sigma = float(line.split(',')[3].strip())
             if sigma == 0.0:
-                #If derived parameter, keep it, else discard it:                                 
+                #If derived parameter, keep it, else discard it:
                 paramtype = line.split(',')[5].strip()[1:-2]
                 if paramtype != 'derived':
                     continue
