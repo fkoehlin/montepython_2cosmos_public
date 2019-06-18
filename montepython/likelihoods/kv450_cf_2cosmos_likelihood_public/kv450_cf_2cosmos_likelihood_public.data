@@ -1,0 +1,268 @@
+#####################################################################
+# Data and precision parameters for the KiDS+VIKING-450 correlation #
+# function '2cosmos' likelihood that allows to split the            #
+# KiDS+VIKING-450 dataset into two mutually exclusive subsets with  #
+# independent cosmological parameters and calculations. The subsets #
+# are still coupled through the joint covariance matrix.            #
+#                                                                   #
+# To be used with data from Hildebrandt et al. 2018                 #
+# (arXiv:1812.06076) available from:                                #
+#                                                                   #
+# http://kids.strw.leidenuniv.nl/sciencedata.php                    #
+#                                                                   #
+# Please refer to Koehlinger et al. 2019 (MNRAS, 484, 3126) and     #
+# Section 7.4 in Hildebrandt et al. 2018 (arXiv:1812.06076)         #
+# for the application of this likelihood.                           #
+#                                                                   #
+# ATTENTION:                                                        #
+# 1) This likelihood does NOT work with the standard Monte Python   #
+# but requires the modified '2cosmos' version available from:       #
+#                                                                   #
+# https://github.com/fkoehlin/montepython_2cosmos_public            #
+#                                                                   #
+# 2) This likelihood only produces valid results for \Omega_k = 0,  #
+# i.e. flat cosmologies!                                            #
+#####################################################################
+
+### GENERAL SETTINGS ###
+
+## DATA LOCATION ##
+
+# Set the path to the folder 'KV450_COSMIC_SHEAR_DATA_RELEASE' from the
+# uncompressed tarball downloaded from:
+# http://kids.strw.leidenuniv.nl/sciencedata.php
+kv450_cf_2cosmos_likelihood_public.data_directory = '/your/path/to/KV450_COSMIC_SHEAR_DATA_RELEASE/'
+
+## BINNING OF THEORY VECTOR ##
+
+# set this flag if you want to bin the theoretical xi_p/m functions with a weight function
+# for extended KV450 systematics analysis: True
+kv450_cf_2cosmos_likelihood_public.use_theory_binning = True
+
+# for new theta-binning supply the smallest and highest bin border values in arcmin:
+# for extended KV450 systematics analysis: 0.5
+kv450_cf_2cosmos_likelihood_public.theta_bin_min_val = 0.5
+# for extended KV450 systematics analysis: 300.
+kv450_cf_2cosmos_likelihood_public.theta_bin_max_val = 300.
+
+# if you want to read in (and interpolate) a weight function (expected as theta, weight):
+# for extended KV450 systematics analysis: False
+kv450_cf_2cosmos_likelihood_public.read_weight_func_for_binning = False
+
+# supply path to weight-function file (ignored if flag above is False):
+# for extended KV450 systematics analysis: 'none'
+kv450_cf_2cosmos_likelihood_public.theory_weight_function_file = 'none'
+
+# supply constant for weight = theta * const.
+# for extended KV450 systematics analysis: 1.
+kv450_cf_2cosmos_likelihood_public.theory_binning_const = 1.
+
+# set here a number of theta nodes over which we integrate per theta_bin
+# for extended KV450 systematics analysis: 100
+kv450_cf_2cosmos_likelihood_public.theta_nodes_theory = 100
+
+## SAVE THEORY VECTOR ##
+
+# write out the xi_p/m theory vector (including all calibrations) in list format
+kv450_cf_2cosmos_likelihood_public.write_out_theory = False
+# the file will be saved to 'data_directory/FOR_MONTE_PYTHON/' and the likelihood
+# will terminate after writing out the vector. Hence, for an MCMC run this flag
+# needs to be set to False!
+
+## REDSHIFT DISTRIBUTIONS ##
+
+# choose the calibration method for the redshift distributions from
+# ['DIR', 'CCfit', 'sDIR', 'DIR_woCOSMOS', 'DIR_woCOSMOS-VVDS', 'DIR_woVVDS',
+#  'DIR_woDEEP2', 'DIR_C15'], refer to the tarball's README for details!
+# for extended KV450 systematics analysis: 'DIR'
+kv450_cf_2cosmos_likelihood_public.nz_method = 'DIR'
+
+# number of discrete z-values used for all integrations, can be set to arbitrary numbers now
+# for extended KV450 systematics analysis: 120
+kv450_cf_2cosmos_likelihood_public.nzmax = 120
+
+# you can choose here any of the scipy.interpolate.interp1d types of interpolation
+# (i.e. 'linear', 'nearest', 'zero', 'slinear', 'quadratic', 'cubic', 'previous',
+# 'next' in SciPy v1.1.0) for the n(z) interpolation ('linear' is recommended)
+# for extended KV450 systematics analysis: 'linear'
+kv450_cf_2cosmos_likelihood_public.type_redshift_interp = 'linear'
+
+## MASKING ##
+
+# use masks to cut angular scales per tomographic bin
+# for extended KV450 systematics analysis: True
+# (since we load the data vector and covariance matrix for all measured scales)
+kv450_cf_2cosmos_likelihood_public.use_cut_theta = True
+
+# if True, select cut schemes to create mutually exclusive subsets of the data
+#  from the folder 'data_directory/SUPPLEMENTARY_FILES/CUT_VALUES/';
+# e.g. the splits applied in Hildebrandt et al. (2018) were the following ones:
+# 1) large angular scales vs. small angular scales:
+#kv450_cf_2cosmos_likelihood_public.cutvalues_file1 = 'cut_values_5zbins.txt'
+#kv450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_5zbins_large_scales.txt'
+# 2) xi_p vs. xi_m:
+#kv450_cf_2cosmos_likelihood_public.cutvalues_file1 = 'cut_values_5zbins.txt'
+#kv450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_5zbins_xi_p.txt'
+# 3) z-bin{1, 2, 3, 4, 5} (incl. all its cross-correlations) vs. all other z-bin correlations:
+kv450_cf_2cosmos_likelihood_public.cutvalues_file1 = 'cut_values_5zbins.txt'
+kv450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_zbin1_only.txt'
+#kv450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_zbin2_only.txt'
+#kv450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_zbin3_only.txt'
+#kv450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_zbin4_only.txt'
+#kv450_cf_2cosmos_likelihood_public.cutvalues_file2 = 'cut_values_zbin5_only.txt'
+# IMPORTANT: for cases 1), 2) and 3) you must set the following flag to 'True',
+# so that mask2 is subtracted from mask1, e.g.:
+# mask1 = cut_values_5zbins.txt
+# mask2 = cut_values_zbin1_only.txt
+# --> modified mask1 contains all other z-bin combos and mask2 all with z-bin1
+# for extended KV450 systematics analysis: True
+kv450_cf_2cosmos_likelihood_public.subtract_mask2_from_mask1 = True
+# give the masking scheme a  name which will be appended to files (e.g. trimmed
+# data vector) saved in folder 'self.data_directory/FOR_MONTE_PYTHON/':
+# for current uncommented masking scheme the following name would be fitting:
+kv450_cf_2cosmos_likelihood_public.name_mask = 'zbin1_vs_all'
+
+## PRECISION SETTINGS ##
+
+# these settings set the precision of the Cl integration
+# maximum l for C_l
+# for extended KV450 systematics analysis: 60000
+kv450_cf_2cosmos_likelihood_public.lmax = 60000
+
+# logarithmic l step for C_l
+# for extended KV450 systematics analysis: 0.2
+kv450_cf_2cosmos_likelihood_public.dlnl = 0.2
+
+# Method for integrating from Cl to xi_p/m, options:
+# 1) 'cut_off' (method inherited from CFHTLenS likelihood, might be to coarse on large theta-scales)
+# 2) 'brute_force' (also based on above method, but with adjusted cut-off scales and precision settings)
+# 3) 'fftlog' (requires pycl2xi-package from "https://github.com/tilmantroester/pycl2xi")
+# for extended KV450 systematics analysis: 'brute_force'
+kv450_cf_2cosmos_likelihood_public.integrate_Bessel_with = 'brute_force'
+
+# Only relevant if you chose 1) or 2) from above:
+# parameters controlling the precision of the integral
+# for the correlation function (int l C_l J(x))
+# through the stepsize of x == l * theta
+# (this also controls the speed of the likelihood,
+# since this integral is the bottleneck)
+# ATTENTION those might have to be adjusted for large scales!
+# for extended KV450 systematics analysis: 50.
+kv450_cf_2cosmos_likelihood_public.xmax = 50.
+# for extended KV450 systematics analysis: 0.05
+kv450_cf_2cosmos_likelihood_public.dx_below_threshold = 0.05
+# for extended KV450 systematics analysis: 0.15
+kv450_cf_2cosmos_likelihood_public.dx_above_threshold = 0.15
+# for extended KV450 systematics analysis: 0.4
+kv450_cf_2cosmos_likelihood_public.dx_threshold = 0.4
+# for extended KV450 systematics analysis: 0.25
+kv450_cf_2cosmos_likelihood_public.dlntheta = 0.25
+
+## METHOD FOR NON-LINEAR CORRECTIONS ##
+
+# choose the method for calculation of non-linear corrections, any CLASS keyword
+# is possible, but the default choices are
+# 1) 'halofit' (including Takahashi's update) and
+# 2) 'hmcode' (Mead et al. 2015, 2016)
+# the choice between the two affects also the choice of the baryon feedback
+# modelling further below!
+# for extended KV450 systematics analysis: 'hmcode'
+kv450_cf_2cosmos_likelihood_public.method_non_linear_Pk = 'hmcode'
+
+# scale k_max (in h/Mpc) up to which the non-linear corrections (of the matter
+# power spectrum) are used/trusted (set to zero for k > k_max):
+# for extended KV450 systematics analysis: 100.
+kv450_cf_2cosmos_likelihood_public.k_max_h_by_Mpc = 100.
+
+
+### NUISANCE PARAMETERS ###
+
+## BARYON FEEDBACK ##
+
+# 1) HALOFIT:
+# the options below are only valid if 'method_non_linear_Pk' = 'halofit'!
+# choose a baryonic feedback model (from OWLS): 'REF', 'AGN', 'DBLIM'
+#kv450_cf_2cosmos_likelihood_public.baryon_model = 'AGN'
+# this allows to marginalize over a free baryon feedback amplitude A_bary:
+# (i.e. it is simply modifying the amplitude set by the chosen model)
+#kv450_cf_2cosmos_likelihood_public.use_nuisance = ['A_bary_1', 'A_bary_2']
+
+# 2) HMCode:
+# the options below are only valid if 'method_non_linear_Pk' = 'hmcode'!
+# in order to marginalize over the baryon feedback parameters in HMcode define:
+# 1) either 'c_min' only or 'eta_0' only as 'cosmo' parameter in your param-file
+#    (the other value will be inferred and fixed)
+# 2) or 'c_min' and 'eta_0' as 'cosmo' parameter in your param-file
+# DON'T include 'c_min' and 'eta_0' in 'use_nuisance'!
+
+## INTRINSIC ALIGNMENTS (IA) ##
+
+# this allows to include IA:
+# if only 'A_IA' is passed, 'exp_IA' = 0 (i.e. redshift-scaling is turned off!)
+#kv450_cf_2cosmos_likelihood_public.use_nuisance = ['A_IA_1', 'exp_IA_1', 'A_IA_2', 'exp_IA_2']
+#kv450_cf_2cosmos_likelihood_public.use_nuisance = ['A_IA_1', 'A_IA_2']
+# if this flag is set to True, the linear matter power spectrum will be used for
+# the II term in the intrinsic alignment model and for the GI term the geometric
+# mean of the linear and non-linear matter power spectre will be used
+# if set to False, the non-linear matter power spectrum will be used for both
+# the II and GI term instead
+# for extended KV450 systematics analysis: False
+kv450_cf_2cosmos_likelihood_public.use_linear_pk_for_IA = False
+
+## C-CORRECTION ##
+
+# this allows to include nuisance parameters for the c-correction (per redshift
+# bin):
+# flag for using a theta-dependent c-term function:
+# for extended KV450 systematics analysis: True
+kv450_cf_2cosmos_likelihood_public.use_cterm_function = True
+
+# 1) free amplitudes for theta-dependent signal:
+# kv450_cf_2cosmos_likelihood_public.use_nuisance = ['Ac_1', 'Ac_2']
+# which currently enter like:
+# xi^theo_p = xi^cosmo_p + Ac^2 * c_term_func(theta)
+# 2) a constant offset:
+# kv450_cf_2cosmos_likelihood_public.use_nuisance = ['dc_1', 'dc_2']
+# which currently enters like (dc_zi's centred on 0!)
+# xi^theo_p = xi^cosmo_p + dc^2
+
+## SHIFTS OF N(Z) ##
+
+# nuisance parameters for marginalizing over a constant shift of any of the n(z):
+#kv450_cf_2cosmos_likelihood_public.use_nuisance = ['D_z1_1', 'D_z2_1', 'D_z3_1', 'D_z4_1', 'D_z5_1', 'D_z1_2', 'D_z2_2', 'D_z3_2', 'D_z4_2', 'D_z5_2']
+
+## FULL LIST OF ALL NUISANCES ##
+
+# combine all nuisance parameters in one list for marginalization:
+# for extended KV450 systematics analysis: ['A_IA_1', 'dc_1', 'Ac_1', 'A_IA_2', 'dc_2', 'Ac_2']
+kv450_cf_2cosmos_likelihood_public.use_nuisance = ['A_IA_1', 'dc_1', 'Ac_1', 'A_IA_2', 'dc_2', 'Ac_2']
+
+# if you want to use/marginalize over the same nuisance parameters for both data
+# splits (i.e. one parameter for both data splits instead of two independent
+# parameters per split), set this flag to 'True':
+# for extended KV450 systematics analysis: False
+kv450_cf_2cosmos_likelihood_public.use_joint_nuisance = False
+# this is what 'use_nuisance' should look like if use_joint_nuisance = True:
+# (i.e. no subscripts for common nuisances!)
+#kv450_cf_2cosmos_likelihood_public.use_nuisance = ['A_bary', 'A_IA']
+
+
+### GAUSSIAN PRIORS (FOR NUISANCES) ###
+
+# if you want to enforce Gaussian priors on some/all NUISANCE parameters, set flag to True
+# if set to False lists below are ignored!
+# for extended KV450 systematics analysis: True
+kv450_cf_2cosmos_likelihood_public.use_gaussian_prior_for_nuisance = True
+
+# add here all NUISANCE parameters for which you would like to define Gaussian priors:
+# names must match exactly to the nusiances defined above!
+# for extended KV450 systematics analysis: ['dc_1', 'Ac_1', 'dc_2', 'Ac_2']
+kv450_cf_2cosmos_likelihood_public.gaussian_prior_name = ['dc_1', 'Ac_1', 'dc_2', 'Ac_2']
+
+# supply here the central values of the Gaussians (keep the order! no double checks!!!)
+# for extended KV450 systematics analysis: [0.0, 1.01, 0.0, 1.01]
+kv450_cf_2cosmos_likelihood_public.gaussian_prior_center = [0.0, 1.01, 0.0, 1.01]
+
+# supply here the std wrt. the center (again keep the order!)
+# for extended KV450 systematics analysis: [0.0002, 0.13, 0.0002, 0.13]
+kv450_cf_2cosmos_likelihood_public.gaussian_prior_sigma = [0.0002, 0.13, 0.0002, 0.13]
