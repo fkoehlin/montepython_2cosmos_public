@@ -420,7 +420,7 @@ def get_covariance_matrix(cosmo1, cosmo2, data, command_line):
 
     return eigv, eigV, matrix
 
-def get_minimum(cosmo, data, command_line, covmat):
+def get_minimum(cosmo1, cosmo2, data, command_line, covmat):
 
     if not command_line.silent:
         warnings.warn("Minimization implementation is being tested")
@@ -498,7 +498,7 @@ def get_minimum(cosmo, data, command_line, covmat):
     # For forecasts or Planck lite SLSQP with tol=0.00001 works well, but does not work for full Planck TTTEEE highl
     result = op.minimize(chi2_eff,
                          parameters,
-                         args = (cosmo,data),
+                         args = (cosmo1, cosmo2, data),
                          #method='trust-region-exact',
                          #method='BFGS',
                          #method='TNC',
@@ -522,7 +522,7 @@ def get_minimum(cosmo, data, command_line, covmat):
 
     return result.x
 
-def chi2_eff(params, cosmo, data, bounds=False):
+def chi2_eff(params, cosmo1, cosmo2, data, bounds=False):
     parameter_names = data.get_mcmc_parameters(['varying'])
     for index, elem in enumerate(parameter_names):
         #print elem,params[index]
@@ -533,20 +533,22 @@ def chi2_eff(params, cosmo, data, bounds=False):
                 print elem+' exceeds bounds with value %f and bounds %f < x < %f' %(params[index],bounds[index,0],bounds[index,1])
                 return chi2
     # Update current parameters to the new parameters, only taking steps as requested
-    data.update_cosmo_arguments()
+    data.update_cosmo1_arguments()
+    data.update_cosmo2_arguments()
     # Compute loglike value for the new parameters
-    chi2 = -2.*compute_lkl(cosmo, data)
+    chi2 = -2.*compute_lkl(cosmo1, cosmo2, data)
     print 'In minimization: ',chi2,' at ',params
     return chi2
 
-def gradient_chi2_eff(params, cosmo, data, bounds=False):
+def gradient_chi2_eff(params, cosmo1, cosmo2, data, bounds=False):
     parameter_names = data.get_mcmc_parameters(['varying'])
     for index, elem in enumerate(parameter_names):
         data.mcmc_parameters[elem]['current'] = params[index]
     # Update current parameters to the new parameters, only taking steps as requested
-    data.update_cosmo_arguments()
+    data.update_cosmo1_arguments()
+    data.update_cosmo2_arguments()
     # Compute loglike value for the new parameters
-    chi2 = -2.*compute_lkl(cosmo, data)
+    chi2 = -2.*compute_lkl(cosmo1, cosmo2, data)
     # Initialise the gradient field
     gradient = np.zeros(len(parameter_names), 'float64')
     for index, elem in enumerate(parameter_names):
@@ -554,19 +556,21 @@ def gradient_chi2_eff(params, cosmo, data, bounds=False):
         #
 
         data.mcmc_parameters[elem]['current'] += dx
-        data.update_cosmo_arguments()
-        chi2_plus = -2.*compute_lkl(cosmo, data)
+        data.update_cosmo1_arguments()
+        data.update_cosmo2_arguments()
+        chi2_plus = -2.*compute_lkl(cosmo1, cosmo2, data)
         #
         data.mcmc_parameters[elem]['current'] -= 2.*dx
-        data.update_cosmo_arguments()
-        chi2_minus = -2.*compute_lkl(cosmo, data)
+        data.update_cosmo1_arguments()
+        data.update_cosmo2_arguments()
+        chi2_minus = -2.*compute_lkl(cosmo1, cosmo2, data)
         #
         gradient[index] = (chi2_plus - chi2_minus)/2./dx
         #
         data.mcmc_parameters[elem]['current'] += dx
     return gradient
 
-def get_fisher_matrix(cosmo, data, command_line, inv_fisher_matrix, minimum=0):
+def get_fisher_matrix(cosmo1, cosmo2, data, command_line, inv_fisher_matrix, minimum=0):
     # Fisher matrix method by T. Brinckmann
     # Contributions from T. Tram, J. Lesgourgues
 
@@ -632,7 +636,7 @@ def get_fisher_matrix(cosmo, data, command_line, inv_fisher_matrix, minimum=0):
         step_matrix = np.identity(len(parameter_names), dtype='float64')
 
         # Compute fisher matrix
-        fisher_matrix, gradient = compute_fisher(data, command_line, cosmo, center, stepsize, step_matrix)
+        fisher_matrix, gradient = compute_fisher(data, command_line, cosmo1, cosmo2, center, stepsize, step_matrix)
         # If we want to rotate back to the cosmological parameter basis
         if not command_line.silent:
             print ("Fisher matrix computed [iteration %d/%d]" % (fisher_iteration,data.fisher_step_it))
@@ -959,7 +963,7 @@ def compute_lkl(cosmo1, cosmo2, data):
     return loglike/data.command_line.temperature
 
 
-def compute_fisher(data, command_line, cosmo, center, step_size, step_matrix):
+def compute_fisher(data, command_line, cosmo1, cosmo2, center, step_size, step_matrix):
     # Function used by Fisher matrix method by T. Brinckmann
 
     # Initialise
@@ -974,8 +978,9 @@ def compute_fisher(data, command_line, cosmo, center, step_size, step_matrix):
         data.mcmc_parameters[elem]['current'] = center[elem]
 
     # Compute loglike at the point supposed to be a good estimate of the best-fit
-    data.update_cosmo_arguments()
-    loglike_min = compute_lkl(cosmo, data)
+    data.update_cosmo1_arguments()
+    data.update_cosmo2_arguments()
+    loglike_min = compute_lkl(cosmo1, cosmo2, data)
 
     # Loop through diagonal elements first, followed by off-diagonal elements
     for elem in ['diag','off-diag']:
@@ -999,7 +1004,7 @@ def compute_fisher(data, command_line, cosmo, center, step_size, step_matrix):
                         if not command_line.silent:
                             print '---> Computing fisher element (%d,%d)' % (k,h)
                         temp1, temp2, diff_1 = compute_fisher_element(
-                            data, command_line, cosmo, center, step_matrix, loglike_min, step_index,
+                            data, command_line, cosmo1, cosmo2, center, step_matrix, loglike_min, step_index,
                             (elem_k, kdiff))
                         fisher_matrix[k][k] += temp1
                         gradient[k] += temp2
@@ -1008,14 +1013,14 @@ def compute_fisher(data, command_line, cosmo, center, step_size, step_matrix):
                         if not command_line.silent:
                             print '---> Computing fisher element (%d,%d), part %d/2' % (k,h,step_index+1)
                         fisher_matrix[k][h] += compute_fisher_element(
-                            data, command_line, cosmo, center, step_matrix, loglike_min, step_index,
+                            data, command_line, cosmo1, cosmo2, center, step_matrix, loglike_min, step_index,
                             (elem_k, kdiff),
                             (elem_h, hdiff))
                         fisher_matrix[h][k] = fisher_matrix[k][h]
 
     return fisher_matrix, gradient
 
-def compute_fisher_element(data, command_line, cosmo, center, step_matrix, loglike_min, step_index_1, one, two=None):
+def compute_fisher_element(data, command_line, cosmo1, cosmo2, center, step_matrix, loglike_min, step_index_1, one, two=None):
     # Function used by Fisher matrix method by T. Brinckmann
 
     # Unwrap
@@ -1026,11 +1031,11 @@ def compute_fisher_element(data, command_line, cosmo, center, step_matrix, logli
         if step_index_1 == 1:
             # Calculate step (++)
             step_index_2 = 1
-            loglike_1, rotated_step_xx = compute_fisher_step(data,command_line,cosmo,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
+            loglike_1, rotated_step_xx = compute_fisher_step(data,command_line,cosmo1,cosmo2,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
 
             # Calculate step (+-)
             step_index_2 = 0
-            loglike_2, rotated_step_xy = compute_fisher_step(data,command_line,cosmo,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
+            loglike_2, rotated_step_xy = compute_fisher_step(data,command_line,cosmo1,cosmo2,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
         else:
             loglike_1 = 0
             loglike_2 = 0
@@ -1038,11 +1043,11 @@ def compute_fisher_element(data, command_line, cosmo, center, step_matrix, logli
         if step_index_1 == 0:
             # Calculate step (-+). Assuming symmetry rotated_step_yx = rotated_step_xy
             step_index_2 = 1
-            loglike_3, rotated_step_xy = compute_fisher_step(data,command_line,cosmo,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
+            loglike_3, rotated_step_xy = compute_fisher_step(data,command_line,cosmo1,cosmo2,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
 
             # Calculate step (--). Assuming symmetry rotated_step_yy = rotated_step_xx
             step_index_2 = 0
-            loglike_4, rotated_step_xx = compute_fisher_step(data,command_line,cosmo,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
+            loglike_4, rotated_step_xx = compute_fisher_step(data,command_line,cosmo1,cosmo2,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
         else:
             loglike_3 = 0
             loglike_4 = 0
@@ -1055,14 +1060,14 @@ def compute_fisher_element(data, command_line, cosmo, center, step_matrix, logli
             if step_index_1 == 1:
                 # Calculate step (+/)
                 step_index_2 = None
-                loglike_5, rotated_step_x = compute_fisher_step(data,command_line,cosmo,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
+                loglike_5, rotated_step_x = compute_fisher_step(data,command_line,cosmo1,cosmo2,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
             else:
                 loglike_5 = 0
 
             if step_index_1 == 0:
                 # Calculate step (-/)
                 step_index_2 = None
-                loglike_6, rotated_step_x = compute_fisher_step(data,command_line,cosmo,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
+                loglike_6, rotated_step_x = compute_fisher_step(data,command_line,cosmo1,cosmo2,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
             else:
                 loglike_6 = 0
 
@@ -1074,11 +1079,11 @@ def compute_fisher_element(data, command_line, cosmo, center, step_matrix, logli
             step_index_1 = None
             # Calculate step (/+)
             step_index_2 = 1
-            loglike_7, rotated_step_y1 = compute_fisher_step(data,command_line,cosmo,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
+            loglike_7, rotated_step_y1 = compute_fisher_step(data,command_line,cosmo1,cosmo2,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
 
             # Calculate step (/-)
             step_index_2 = 0
-            loglike_8, rotated_step_y2 = compute_fisher_step(data,command_line,cosmo,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
+            loglike_8, rotated_step_y2 = compute_fisher_step(data,command_line,cosmo1,cosmo2,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
 
         # Count the bestfit term at most once
         if step_index_1:
@@ -1130,13 +1135,13 @@ def compute_fisher_element(data, command_line, cosmo, center, step_matrix, logli
         # Calculate left step
         step_index_1 = 0
         step_index_2 = None
-        loglike_left, diff_1, rotated_step_left = compute_fisher_step(data,command_line,cosmo,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
+        loglike_left, diff_1, rotated_step_left = compute_fisher_step(data,command_line,cosmo1,cosmo2,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
         # Update 'one' with the new step size to pass to the next step
         one = (one[0],diff_1)
 
         # Calculate right step
         step_index_1 = 1
-        loglike_right, diff_1, rotated_step_right = compute_fisher_step(data,command_line,cosmo,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
+        loglike_right, diff_1, rotated_step_right = compute_fisher_step(data,command_line,cosmo1,cosmo2,center,step_matrix,loglike_min,one,two,step_index_1,step_index_2)
 
         # In the following we want only the step magnitude, not sign
         diff_1_backup = diff_1[:]
@@ -1165,7 +1170,7 @@ def compute_fisher_element(data, command_line, cosmo, center, step_matrix, logli
         return fisher_diagonal, gradient, diff_1
 
 
-def compute_fisher_step(data, command_line, cosmo, center, step_matrix, loglike_min, one, two, step_index_1, step_index_2):
+def compute_fisher_step(data, command_line, cosmo1, cosmo2, center, step_matrix, loglike_min, one, two, step_index_1, step_index_2):
     # Function used by Fisher matrix method by T. Brinckmann
 
     # Unwrap
@@ -1264,10 +1269,11 @@ def compute_fisher_step(data, command_line, cosmo, center, step_matrix, loglike_
             data.mcmc_parameters[elem]['current'] = center[elem] + rotated_array[index]
 
         # Update current parameters to the new parameters, only taking steps as requested
-        data.update_cosmo_arguments()
+        data.update_cosmo1_arguments()
+        data.update_cosmo2_arguments()
 
         # Compute loglike value for the new parameters
-        loglike = compute_lkl(cosmo, data)
+        loglike = compute_lkl(cosmo1, cosmo2, data)
 
         # Iterative stepsize. If -Delta ln(L) > 1, change step size and repeat steps above
         # if data.use_symmetric_step=True only runs for step_index_1=0
