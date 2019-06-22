@@ -292,10 +292,25 @@ def chain(cosmo1, cosmo2, data, command_line):
         # if we want to compute the starting point by minimising lnL (instead of taking it from input file or bestfit file)
         minimum = 0
         if command_line.minimize:
-            minimum = sampler.get_minimum(cosmo1, cosmo2, data, command_line, C)
+            minimum, min_chi2 = sampler.get_minimum(cosmo1, cosmo2, data, command_line, C)
             parameter_names = data.get_mcmc_parameters(['last_accepted'])
             for index,elem in parameter_names:
                 data.mcmc_parameters[elem]['last_accepted'] = minimum[index]
+
+            #FK: write out the results of the minimzer:
+            labels = data.get_mcmc_parameters(['varying'])
+            fname = os.path.join(command_line.folder, 'results.minimized')
+            with open(fname, 'w') as f:
+                f.write('# minimized \chi^2 = {:} \n'.format(min_chi2))
+                f.write('# %s\n' % ', '.join(['%16s' % label for label in labels]))
+                for idx in xrange(len(labels)):
+                    bf_value = minimum[idx]
+                    if bf_value > 0:
+                        f.write(' %.6e\t' % bf_value)
+                    else:
+                        f.write('%.6e\t' % bf_value)
+                f.write('\n')
+            print 'Results of minimizer saved to: \n', fname
 
         # if we want to compute Fisher matrix and then stop
         if command_line.fisher:

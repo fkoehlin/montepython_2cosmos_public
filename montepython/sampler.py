@@ -457,7 +457,8 @@ def get_minimum(cosmo1, cosmo2, data, command_line, covmat):
                  {'type': 'ineq', 'fun': lambda x: bounds[index,1] - x[index]},)
         print 'bounds on ',elem,' : ',bounds[index,0],bounds[index,1]
 
-    print 'parameters: ',parameters
+    #FK: use list-comprehension so that the parameter values are distinguishable from step to step
+    print 'parameters: ',[param for param in parameters]
     print 'stepsizes: ',stepsizes[0]
     print 'bounds: ',bounds
 
@@ -520,7 +521,8 @@ def get_minimum(cosmo1, cosmo2, data, command_line, covmat):
     for index,elem in enumerate(parameter_names):
         print elem, 'new:', result.x[index], ', old:', parameters[index]
 
-    return result.x
+    #FK: return also min chi^2:
+    return result.x, result.fun
 
 def chi2_eff(params, cosmo1, cosmo2, data, bounds=False):
     parameter_names = data.get_mcmc_parameters(['varying'])
@@ -537,7 +539,8 @@ def chi2_eff(params, cosmo1, cosmo2, data, bounds=False):
     data.update_cosmo2_arguments()
     # Compute loglike value for the new parameters
     chi2 = -2.*compute_lkl(cosmo1, cosmo2, data)
-    print 'In minimization: ',chi2,' at ',params
+    #FK: use list-comprehension so that the parameter values are distinguishable from step to step
+    print 'In minimization: ',chi2,' at ',[param for param in params]
     return chi2
 
 def gradient_chi2_eff(params, cosmo1, cosmo2, data, bounds=False):
