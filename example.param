@@ -1,0 +1,99 @@
+#------Experiments to test (separated with commas)-----
+
+data.experiments=['kids450_cf_2cosmos_likelihood_public']
+
+#------ Settings for the over-sampling. The first element will always be set to
+# 1, for it is the sampling of the cosmological parameters. The other numbers
+# describe the over sampling of the nuisance parameter space. This array must
+# have the same dimension as the number of blocks in your run (so, 1 for
+# cosmological parameters, and then 1 for each experiment with varying nuisance
+# parameters).
+#data.over_sampling=[1, 1, 4]
+
+#------ Parameter list -------
+
+# data.parameters[class name] = [mean, min, max, 1-sigma, scale, role]
+# - if min max irrelevant, put to -1
+# - if fixed, put 1-sigma to 0
+# - if scale irrelevant, put to 1, otherwise to the appropriate factor
+# - role is either 'cosmo' or 'nuisance'
+
+# Cosmological parameters list
+# main parameters to extract:
+
+data.parameters['omega_cdm_1']    = [0.11919,   0.01, 0.99, 0.0027,    1, 'cosmo1']
+data.parameters['ln10^{10}A_s_1'] = [3.0753,   1.7, 5., 0.0029,    1, 'cosmo1']
+data.parameters['omega_b_1']      = [0.022253,  0.01875, 0.02625, 0.028,  1, 'cosmo1']
+data.parameters['n_s_1']          = [0.96229,   0.7, 1.3, 0.0074,    1, 'cosmo1']
+data.parameters['h_1']         	  = [0.673,     0.64,   0.82,   0.0065, 1, 'cosmo1']
+data.parameters['omega_cdm_2']    = [0.11919,   0.01, 0.99, 0.0027,    1, 'cosmo2']
+data.parameters['ln10^{10}A_s_2'] = [3.0753,   1.7, 5., 0.0029,    1, 'cosmo2']
+data.parameters['omega_b_2']      = [0.022253,  0.01875, 0.02625, 0.028,  1, 'cosmo2']
+data.parameters['n_s_2']          = [0.96229,   0.7, 1.3, 0.0074,    1, 'cosmo2']
+data.parameters['h_2']         	= [0.673,     0.64,   0.82,   0.0065, 1, 'cosmo2']
+
+# Nuisance parameters:
+
+# if kids450_cf_2cosmos_likelihood_public.use_joint_nuisance = False:
+# amplitude for IA:
+data.parameters['A_IA_1'] = [0., -6., 6., 0.5, 1, 'nuisance']
+data.parameters['A_IA_2'] = [0., -6., 6., 0.5, 1, 'nuisance']
+#
+# amplitude for baryon feedback:
+data.parameters['A_bary_1'] = [2., 0., 10., 0.5, 1, 'nuisance']
+data.parameters['A_bary_2'] = [2., 0., 10., 0.5, 1, 'nuisance']
+
+# if kids450_cf_2cosmos_likelihood_public.use_joint_nuisance = True:
+# amplitude for IA:
+#data.parameters['A_IA'] = [0., -6., 6., 0.5, 1, 'nuisance']
+#
+# amplitude for baryon feedback:
+#data.parameters['A_bary'] = [2., 0., 10., 0.5, 1, 'nuisance']
+
+# Derived parameters
+
+#data.parameters['Omega_Lambda'] = [1, None, None, 0, 1, 'derived']
+data.parameters['Omega_m_1']      = [1, None, None, 0, 1, 'derived']
+data.parameters['sigma8_1']       = [1, None, None, 0, 1, 'derived']
+data.parameters['Omega_m_2']      = [1, None, None, 0, 1, 'derived']
+data.parameters['sigma8_2']       = [1, None, None, 0, 1, 'derived']
+
+# Other cosmo parameters (fixed parameters, precision parameters, etc.)
+
+# fix main cosmology to Planck:
+# Table 2 last column (Planck + WP, 68% c.l.) from Planck 2014 (A&A, 571, A16 (2014))
+#data.cosmo_arguments['tau_reio'] = 0.089
+data.cosmo1_arguments['Omega_k'] = 0.
+data.cosmo2_arguments['Omega_k'] = 0.
+
+# The base model features two massless
+# and one massive neutrino with m=0.06eV.
+# The settings below ensures that these
+# three species contribute equally
+# to the radiation density at large
+# redshift, with a total of Neff=3.046
+#data.cosmo_arguments['N_eff'] = 3.046
+#data.cosmo1_arguments['N_eff'] = 2.0328
+#data.cosmo1_arguments['N_ncdm'] = 1
+#data.cosmo1_arguments['m_ncdm'] = 0.06
+#data.cosmo1_arguments['T_ncdm'] = 0.71611
+#data.cosmo2_arguments['N_eff'] = 2.0328
+#data.cosmo2_arguments['N_ncdm'] = 1
+#data.cosmo2_arguments['m_ncdm'] = 0.06
+#data.cosmo2_arguments['T_ncdm'] = 0.71611
+# for consistency with original KiDS-450 analysis we use massless neutrinos here:
+data.cosmo1_arguments['N_eff'] = 3.046
+data.cosmo1_arguments['N_ncdm'] = 0
+data.cosmo2_arguments['N_eff'] = 3.046
+data.cosmo2_arguments['N_ncdm'] = 0
+
+# standard BBN prediction of the primordial Helium abundance $Y_p$:
+data.cosmo1_arguments['sBBN file'] = data.path['cosmo']+'/bbn/sBBN.dat'
+data.cosmo1_arguments['k_pivot'] = 0.05
+data.cosmo2_arguments['sBBN file'] = data.path['cosmo']+'/bbn/sBBN.dat'
+data.cosmo2_arguments['k_pivot'] = 0.05
+
+# this writes out all parameters used (also the hidden ones, I hope):
+#data.cosmo_arguments['write parameters'] = 'yes'
+# only needed for regular MCMC:
+data.write_step=1

@@ -15,7 +15,7 @@ chains/*
 *.conf
 
 # Custom parameter files
-*.param
+#*.param
 
 # Build files of sphinx-doc
 sphinx-documentation/_build/
