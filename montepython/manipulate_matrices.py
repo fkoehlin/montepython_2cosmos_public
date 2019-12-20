@@ -4,9 +4,14 @@
 
 .. moduleauthor:: Benjamin Audren
 """
+from __future__ import print_function
 import numpy as np
 import sys
 
+try:
+    from builtins import raw_input as py_input
+except NameError:
+    from builtins import input as py_input
 
 def merge_matrices(path1, path2):
 
@@ -22,55 +27,55 @@ def merge_matrices(path1, path2):
                   file2.readline().strip()[1:].split(',')]
     matrix2 = np.loadtxt(path2)
 
-    print
-    print 'Here are the two matrices to merge: '
-    print '-->', path1
-    print '-->', path2
-    print
-    print 'List of parameters from ', path1
+    print()
+    print('Here are the two matrices to merge: ')
+    print('-->', path1)
+    print('-->', path2)
+    print()
+    print('List of parameters from ', path1)
     for index, elem in enumerate(names1):
-        print index+1, elem
-    print
-    print 'Give the list of parameters you want to keep from these'
-    print 'You can specify either all single parameters, separated by commas,'
-    print 'or specify ranges, like omega_b:tau_reio, or 1:6 (6 included)'
+        print(index+1, elem)
+    print()
+    print('Give the list of parameters you want to keep from these')
+    print('You can specify either all single parameters, separated by commas,')
+    print('or specify ranges, like omega_b:tau_reio, or 1:6 (6 included)')
 
     answer = None
     while not answer:
-        answer = raw_input('Specify parameters to keep: ')
+        answer = py_input('Specify parameters to keep: ')
 
     indices1 = extract_indices(answer, names1)
 
     final_list = []
-    print
-    print r' /!\ Keeping the following parameters from the first matrix:'
+    print()
+    print(r' /!\ Keeping the following parameters from the first matrix:')
     for index, name in enumerate(names1):
         if index in indices1:
-            print ' --> %s' % name
+            print(' --> %s' % name)
             final_list.append(name)
 
-    print '--------------------------------------------------------'
-    print 'Choose now the parameters from the second matrix'
-    print
-    print 'List of parameters from ', path2
+    print('--------------------------------------------------------')
+    print('Choose now the parameters from the second matrix')
+    print()
+    print('List of parameters from ', path2)
     for index, elem in enumerate(names2):
-        print index+1, elem
-    print
+        print(index+1, elem)
+    print()
 
-    answer = raw_input('Specify parameters to keep (can be empty): ')
+    answer = py_input('Specify parameters to keep (can be empty): ')
 
     try:
         indices2 = extract_indices(answer, names2)
-        print
-        print ' /!\ Keeping the following parameters from the second matrix:'
+        print()
+        print(' /!\ Keeping the following parameters from the second matrix:')
         for index, name in enumerate(names2):
             if index in indices2:
-                print ' --> %s' % name
+                print(' --> %s' % name)
                 final_list.append(name)
     except ValueError:
         indices2 = []
-        print
-        print ' /!\ No parameters selected for the second matrix'
+        print()
+        print(' /!\ No parameters selected for the second matrix')
 
     # Fill in the first submatrix
     N = len(indices1)
@@ -96,14 +101,14 @@ def merge_matrices(path1, path2):
     final_mat[:N, :N] = submat1
     final_mat[N:, N:] = submat2
 
-    print 'Final list of parameters:'
+    print('Final list of parameters:')
     for index, name in enumerate(final_list):
-        print index+1, name
+        print(index+1, name)
     print
 
     result = None
     while not result:
-        result = raw_input('writing the resulting covariance matrix to file:\n')
+        result = py_input('writing the resulting covariance matrix to file:\n')
 
     with open(result, 'w') as output:
         output.write('# '+', '.join(['%16s' % e for e in final_list]))
@@ -116,7 +121,7 @@ def merge_matrices(path1, path2):
                     output.write('% .5e\t' % final_mat[i][j])
             output.write('\n')
 
-    print '\ndone !'
+    print('\ndone !')
 
 
 def extract_indices(answer, names):
@@ -156,4 +161,4 @@ if __name__ == '__main__':
             "Please input two matrices and select no parameters"
             "in the second one")
     else:
-        print 'You should specify two matrices to manipulate'
+        print('You should specify two matrices to manipulate')

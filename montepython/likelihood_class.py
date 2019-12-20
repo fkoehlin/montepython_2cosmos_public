@@ -9,6 +9,7 @@ basic functions, as well as more specific likelihood classes that may be reused
 to implement new ones.
 
 """
+from __future__ import print_function
 import os
 import numpy as np
 import math
@@ -20,6 +21,7 @@ import scipy.interpolate
 import scipy.misc
 
 import io_mp
+from io_mp import dictitems,dictvalues,dictkeys
 
 
 class Likelihood(object):
@@ -60,6 +62,7 @@ class Likelihood(object):
 
         # Recover the values potentially read in the input.param file.
         if hasattr(data, self.name):
+            attributes = []
             exec("attributes = [e for e in dir(data.%s) if e.find('__') == -1]" % self.name)
             for elem in attributes:
                 exec("setattr(self, elem, getattr(data.%s, elem))" % self.name)
@@ -190,7 +193,7 @@ class Likelihood(object):
 
         # convert dimensionless C_l's to C_l in muK**2
         T = cosmo.T_cmb()
-        for key in cl.iterkeys():
+        for key in dictkeys(cl):
             # All quantities need to be multiplied by this factor, except the
             # phi-phi term, that is already dimensionless
             # phi cross-terms should only be multiplied with this factor once
@@ -212,7 +215,7 @@ class Likelihood(object):
 
         # convert dimensionless C_l's to C_l in muK**2
         T = cosmo.T_cmb()
-        for key in cl.iterkeys():
+        for key in dictkeys(cl):
             # All quantities need to be multiplied by this factor, except the
             # phi-phi term, that is already dimensionless
             # phi cross-terms should only be multiplied with this factor once
@@ -243,7 +246,7 @@ class Likelihood(object):
 
         """
         array_flag = False
-        for key, value in dictionary.iteritems():
+        for key, value in dictitems(dictionary):
             try:
                 data.cosmo1_arguments[key]
                 try:
@@ -298,7 +301,7 @@ class Likelihood(object):
 
         """
         array_flag = False
-        for key, value in dictionary.iteritems():
+        for key, value in dictitems(dictionary):
             try:
                 data.cosmo2_arguments[key]
                 try:
@@ -348,11 +351,11 @@ class Likelihood(object):
                 for line in File:
                     l = int(float(line.split()[0]))
                     if ((l >= 2) and (l <= self.l_max)):
-                        exec "self.%s_contamination[l]=float(line.split()[1])/(l*(l+1.)/2./math.pi)" % nuisance
+                        exec("self.%s_contamination[l]=float(line.split()[1])/(l*(l+1.)/2./math.pi)" % nuisance)
             except:
-                print 'Warning: you did not pass a file name containing '
-                print 'a contamination spectrum regulated by the nuisance '
-                print 'parameter '+nuisance
+                print('Warning: you did not pass a file name containing ')
+                print('a contamination spectrum regulated by the nuisance ')
+                print('parameter '+nuisance)
 
             # read renormalization factor
             # if it is not there, assume it is one, i.e. do not renormalize
@@ -390,7 +393,7 @@ class Likelihood(object):
 
             # add contamination spectra multiplied by nuisance parameters
             for l in range(2, self.l_max):
-                exec "cl['tt'][l] += nuisance_value*self.%s_contamination[l]" % nuisance
+                exec("cl['tt'][l] += nuisance_value*self.%s_contamination[l]" % nuisance)
 
         return cl
 
@@ -423,10 +426,11 @@ class Likelihood(object):
 
         """
         # Recover both instances from the context
-        cosmo = ctx.get("cosmo")
+        cosmo1 = ctx.get("cosmo1")
+        cosmo2 = ctx.get("cosmo2")
         data = ctx.get("data")
 
-        loglkl = self.loglkl(cosmo, data)
+        loglkl = self.loglkl(cosmo1, cosmo2, data)
 
         return loglkl
 
@@ -449,6 +453,8 @@ class Likelihood_prior(Likelihood):
         raise NotImplementedError('Must implement method loglkl() in your likelihood')
 
 
+### FK: likelihoods below NOT modified to be compatible with 2cosmos modifications!!! ###
+
 ###################################
 # NEWDAT TYPE LIKELIHOOD
 # --> spt,boomerang,etc.
@@ -461,7 +467,7 @@ class Likelihood_newdat(Likelihood):
 
         self.need_cosmo_arguments(
             data, {'lensing': 'yes', 'output': 'tCl lCl pCl'})
-
+        
         # open .newdat file
         newdatfile = open(
             os.path.join(self.data_directory, self.file), 'r')
@@ -970,7 +976,7 @@ class Likelihood_clik(Likelihood):
             for i in range(len(self.nuisance)):
                 if (self.nuisance[i] == 'A_Planck'):
                     self.nuisance[i] = 'A_planck'
-            print "In %s, MontePython corrected nuisance parameter name A_Planck to A_planck" % self.name
+            print("In %s, MontePython corrected nuisance parameter name A_Planck to A_planck" % self.name)
 
         # testing if the nuisance parameters are defined. If there is at least
         # one non defined, raise an exception.
@@ -979,7 +985,7 @@ class Likelihood_clik(Likelihood):
         for nuisance in self.nuisance:
             if nuisance not in nuisance_parameter_names:
                 exit_flag = True
-                print '%20s\tmust be a fixed or varying nuisance parameter' % nuisance
+                print('%20s\tmust be a fixed or varying nuisance parameter' % nuisance)
 
         if exit_flag:
             raise io_mp.LikelihoodError(
@@ -1094,12 +1100,12 @@ class Likelihood_clik(Likelihood):
                     "the likelihood needs a parameter %s. " % nuisance +
                     "You must pass it through the input file " +
                     "(as a free nuisance parameter or a fixed parameter)")
-            #print "found one nuisance with name",nuisance
+            #print("found one nuisance with name",nuisance)
             tot[index] = nuisance_value
             index += 1
 
         # compute likelihood
-        #print "lkl:",self.clik(tot)
+        #print("lkl:",self.clik(tot))
         lkl = self.clik(tot)[0]
 
         # add prior on nuisance parameters
@@ -1269,6 +1275,14 @@ class Likelihood_mock_cmb(Likelihood):
                                             "but you do not seem to have lensing extraction enabled")
         except:
             self.ExcludeTTTEEE = False
+            
+        # added by Siavash Yasini
+        try:
+            self.OnlyTT
+            if self.OnlyTT and self.ExcludeTTTEEE: 
+                raise io_mp.LikelihoodError("OnlyTT and ExcludeTTTEEE cannot be used simultaneously.")
+        except:
+            self.OnlyTT = False
 
         ##############################################
         # Delensing noise: implemented by  S. Clesse #
@@ -1415,32 +1429,36 @@ class Likelihood_mock_cmb(Likelihood):
         # Else the file will be created in the loglkl() function.
 
         # Explicitly display the flags to be sure that likelihood does what you expect:
-        print "Initialised likelihood_mock_cmb with following options:"
+        print("Initialised likelihood_mock_cmb with following options:")
         if self.unlensed_clTTTEEE:
-            print "  unlensed_clTTTEEE is True"
+            print("  unlensed_clTTTEEE is True")
         else:
-            print "  unlensed_clTTTEEE is False"
+            print("  unlensed_clTTTEEE is False")
         if self.Bmodes:
-            print "  Bmodes is True"
+            print("  Bmodes is True")
         else:
-            print "  Bmodes is False"
+            print("  Bmodes is False")
         if self.delensing:
-            print "  delensing is True"
+            print("  delensing is True")
         else:
-            print "  delensing is False"
+            print("  delensing is False")
         if self.LensingExtraction:
-            print "  LensingExtraction is True"
+            print("  LensingExtraction is True")
         else:
-            print "  LensingExtraction is False"
+            print("  LensingExtraction is False")
         if self.neglect_TD:
-            print "  neglect_TD is True"
+            print("  neglect_TD is True")
         else:
-            print "  neglect_TD is False"
+            print("  neglect_TD is False")
         if self.ExcludeTTTEEE:
-            print "  ExcludeTTTEEE is True"
+            print("  ExcludeTTTEEE is True")
         else:
-            print "  ExcludeTTTEEE is False"
-        print ""
+            print("  ExcludeTTTEEE is False")
+        if self.OnlyTT:
+            print("  OnlyTT is True")
+        else:
+            print("  OnlyTT is False")
+        print("")
 
         # end of initialisation
         return
@@ -1482,7 +1500,7 @@ class Likelihood_mock_cmb(Likelihood):
             fid_file = open(os.path.join(
                 self.data_directory, self.fiducial_file), 'w')
             fid_file.write('# Fiducial parameters')
-            for key, value in data.mcmc_parameters.iteritems():
+            for key, value in dictitems(data.mcmc_parameters):
                 fid_file.write(', %s = %.5g' % (
                     key, value['current']*value['scale']))
             fid_file.write('\n')
@@ -1505,7 +1523,7 @@ class Likelihood_mock_cmb(Likelihood):
                     if not self.ExcludeTTTEEE:
                         fid_file.write("%.8g  " % (math.sqrt(l*(l+1.))*cl['tp'][l]))
                 fid_file.write("\n")
-            print '\n'
+            print('\n')
             warnings.warn(
                 "Writing fiducial model in %s, for %s likelihood\n" % (
                     self.data_directory+'/'+self.fiducial_file, self.name))
@@ -1521,7 +1539,10 @@ class Likelihood_mock_cmb(Likelihood):
         # spectra = TT,EE,TE,[BB],[DD,TD]
         # default:
         if not self.ExcludeTTTEEE:
-            num_modes=2
+            if self.OnlyTT:
+                num_modes=1
+            else:
+                num_modes=2
         # default 0 if excluding TT EE
         else:
             num_modes=0
@@ -1592,6 +1613,13 @@ class Likelihood_mock_cmb(Likelihood):
                     [cl['tt'][l]+self.noise_T[l], cl['te'][l], 0.*math.sqrt(l*(l+1.))*cl['tp'][l]],
                     [cl['te'][l], cl['ee'][l]+self.noise_P[l], 0],
                     [cltd, 0, cldd+self.Nldd[l]]])
+
+            # case with TT only (Added by Siavash Yasini)
+            elif self.OnlyTT:
+                Cov_obs = np.array([[self.Cl_fid[0, l]]])
+                    
+                Cov_the = np.array([[cl['tt'][l]+self.noise_T[l]]])
+                    
 
             # case without B modes nor lensing:
             else:
@@ -1862,11 +1890,11 @@ class Likelihood_mpk(Likelihood):
             a1maxval=self.a1maxval
             self.a1list=np.zeros(self.nptstot)
             self.a2list=np.zeros(self.nptstot)
-            da1 = a1maxval/(nptsa1/2)
-            da2 = self.a2maxpos(-a1maxval) / (nptsa2/2)
+            da1 = a1maxval/(nptsa1//2)
+            da2 = self.a2maxpos(-a1maxval) / (nptsa2//2)
             count=0
-            for i in range(-nptsa1/2, nptsa1/2+1):
-                for j in range(-nptsa2/2, nptsa2/2+1):
+            for i in range(-nptsa1//2, nptsa1//2+1):
+                for j in range(-nptsa2//2, nptsa2//2+1):
                     a1val = da1*i
                     a2val = da2*j
                     if ((a2val >= 0.0 and a2val <= self.a2maxpos(a1val) and a2val >= self.a2minfinalpos(a1val)) or \
@@ -1972,7 +2000,7 @@ class Likelihood_mpk(Likelihood):
         will be transfered to wigglez_a, b, c and d
 
         """
-        for key, value in common_dictionary.iteritems():
+        for key, value in dictitems(common_dictionary):
             # First, check if the parameter exists already
             try:
                 exec("self.%s" % key)
@@ -2108,14 +2136,14 @@ class Likelihood_mpk(Likelihood):
                 fidnlratio, fidNEAR, fidMID, fidFAR = self.get_flat_fid(cosmo,data,kh,z,sigma2bao)
                 try:
                     existing_fid = np.loadtxt('data/sdss_lrgDR7/sdss_lrgDR7_fiducialmodel.dat')
-                    print 'sdss_lrgDR7: Checking fiducial deviations for near, mid and far bins:', np.sum(existing_fid[:,1] - fidNEAR),np.sum(existing_fid[:,2] - fidMID), np.sum(existing_fid[:,3] - fidFAR)
+                    print('sdss_lrgDR7: Checking fiducial deviations for near, mid and far bins:', np.sum(existing_fid[:,1] - fidNEAR),np.sum(existing_fid[:,2] - fidMID), np.sum(existing_fid[:,3] - fidFAR))
                     if np.sum(existing_fid[:,1] - fidNEAR) + np.sum(existing_fid[:,2] - fidMID) + np.sum(existing_fid[:,3] - fidFAR) < 10**-5:
                         self.create_fid = False
                 except:
                     pass
                 if self.create_fid == True:
-                    print 'sdss_lrgDR7: Creating fiducial file with Omega_b = 0.25, Omega_L = 0.75, h = 0.701'
-                    print '             Required for non-linear modeling'
+                    print('sdss_lrgDR7: Creating fiducial file with Omega_b = 0.25, Omega_L = 0.75, h = 0.701')
+                    print('             Required for non-linear modeling')
                     # Save non-linear corrections from N-body sims for each redshift bin
                     arr=np.zeros((np.size(kh),7))
                     arr[:,0]=kh
@@ -2126,7 +2154,7 @@ class Likelihood_mpk(Likelihood):
                     arr[:,4:7]=fidnlratio
                     np.savetxt('data/sdss_lrgDR7/sdss_lrgDR7_fiducialmodel.dat',arr)
                     self.create_fid = False
-                    print '             Fiducial created'
+                    print('             Fiducial created')
 
             # Load fiducial model
             fiducial = np.loadtxt('data/sdss_lrgDR7/sdss_lrgDR7_fiducialmodel.dat')
@@ -2222,7 +2250,7 @@ class Likelihood_mpk(Likelihood):
                     chisqnonuis = chisq[i]
                     minchisqtheoryampnonuis = minchisqtheoryamp
                     if(abs(a1val) > 0.001 or abs(a2val) > 0.001):
-                         print 'sdss_lrgDR7: ahhhh! violation!!', a1val, a2val
+                         print('sdss_lrgDR7: ahhhh! violation!!', a1val, a2val)
 
             # numerically marginalize over a1,a2 now using values stored in chisq
             minchisq = np.min(chisqmarg)
@@ -2236,7 +2264,7 @@ class Likelihood_mpk(Likelihood):
                     'LRG LnLike LogZero error.' )
             else:
                 chisq = -2.*math.log(LnLike) + minchisq
-            #print 'DR7 chi2/2=',chisq/2.
+            #print('DR7 chi2/2=',chisq/2.)
 
         #if we are not using DR7
         else:
@@ -2271,7 +2299,7 @@ class Likelihood_mpk(Likelihood):
                     imax = (i_region+1)*self.n_size-1
 
                     W_P_th = np.dot(self.window[i_region, :], P_th)
-                    #print W_P_th
+                    #print(W_P_th)
                     for i in range(self.n_size):
                         P_data_large[imin+i] = self.P_obs[i_region, i]
                         W_P_th_large[imin+i] = W_P_th[i]
@@ -2291,7 +2319,7 @@ class Likelihood_mpk(Likelihood):
             # Explain this formula better, link to article ?
             chisq = np.dot(P_data_large, cov_dat_large) - \
                 np.dot(W_P_th_large, cov_dat_large)**2/normV
-            #print 'WiggleZ chi2=',chisq/2.
+            #print('WiggleZ chi2=',chisq/2.)
 
         return -chisq/2
 

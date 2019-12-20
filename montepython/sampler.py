@@ -18,11 +18,13 @@ all different sampler methods:
 
 
 """
+from __future__ import print_function
 import numpy as np
 import sys
 import warnings
 
 import io_mp
+from io_mp import dictitems,dictvalues,dictkeys
 import os
 import scipy.linalg as la
 import scipy.optimize as op
@@ -97,10 +99,23 @@ def read_args_from_chain(data, chain):
     chain_file = io_mp.File(chain, 'r')
     parameter_names = data.get_mcmc_parameters(['varying'])
 
+    commented_line = 0
+    success = 0
+    # Test if last chain entry contains a step or a commented line
+    while not success:
+        if chain_file.tail(1)[0].split('\t')[0] == '#':
+            commented_line += 1
+        else:
+            success += 1
+        if commented_line == 1000:
+            raise ConfigurationError('Error loading chains files. '
+                                     'Last 1000 entries of a chain are commented')
     i = 1
     for elem in parameter_names:
+        #data.mcmc_parameters[elem]['last_accepted'] = float(
+        #    chain_file.tail(1)[0].split('\t')[i])
         data.mcmc_parameters[elem]['last_accepted'] = float(
-            chain_file.tail(1)[0].split('\t')[i])
+            chain_file.tail(commented_line+1)[commented_line].split('\t')[i])
         i += 1
 
 
@@ -135,14 +150,14 @@ def read_args_from_bestfit(data, bestfit):
             data.mcmc_parameters[elem]['last_accepted'] = \
                 bestfit_values[bestfit_names.index(elem)] / \
                 data.mcmc_parameters[elem]['scale']
-            print 'from best-fit file : ', elem, ' = ',
-            print bestfit_values[bestfit_names.index(elem)] / \
-                data.mcmc_parameters[elem]['scale']
+            sys.stdout.write('from best-fit file : ', elem, ' = ')
+            print(bestfit_values[bestfit_names.index(elem)] / \
+                data.mcmc_parameters[elem]['scale'])
         else:
             data.mcmc_parameters[elem]['last_accepted'] = \
                 data.mcmc_parameters[elem]['initial'][0]
-            print 'from input file    : ', elem, ' = ',
-            print data.mcmc_parameters[elem]['initial'][0]
+            sys.stdout.write('from input file    : ', elem, ' = ')
+            print(data.mcmc_parameters[elem]['initial'][0])
 
 
 def get_covariance_matrix(cosmo1, cosmo2, data, command_line):
@@ -177,89 +192,7 @@ def get_covariance_matrix(cosmo1, cosmo2, data, command_line):
         command_line.quiet
     except:
         command_line.quiet = False
-
-    if command_line.fisher and not command_line.cov:
-        # We will work out the fisher matrix for all the parameters and
-        # write it to a file
-        if not command_line.silent:
-            warnings.warn("Fisher implementation is being tested")
-
-        # Let us create a separate copy of data
-        from copy import deepcopy
-        # Do not modify data, instead copy
-        temp_data = deepcopy(data)
-        done = False
-
-        # Create the center dictionary, which will hold the center point
-        # information (or best-fit) TODO
-        # This dictionary will be updated in case it was too far from the
-        # best-fit, and found a non positive-definite symmetric fisher matrix.
-        center = {}
-        if not command_line.bf:
-            for elem in parameter_names:
-                temp_data.mcmc_parameters[elem]['current'] = (
-                    data.mcmc_parameters[elem]['initial'][0])
-                center[elem] = data.mcmc_parameters[elem]['initial'][0]
-        else:
-            read_args_from_bestfit(temp_data, command_line.bf)
-            for elem in parameter_names:
-                temp_data.mcmc_parameters[elem]['current'] = (
-                    temp_data.mcmc_parameters[elem]['last_accepted'])
-                center[elem] = temp_data.mcmc_parameters[elem]['last_accepted']
-
-        # Have a security index that prevents looping indefinitely
-        security = 0
-        while not done and security < 10:
-            security += 1
-            # Compute the Fisher matrix and the gradient array at the center
-            # point.
-            fisher_matrix, gradient = compute_fisher(
-                temp_data, cosmo1, cosmo2, center, 0.01)
-
-            # Compute inverse of the fisher matrix, catch LinAlgError exception
-            fisher_invert_success = True
-            try:
-                if not command_line.silent:
-                    print("Fisher matrix computed:")
-                    print(fisher_matrix)
-                cov_matrix = np.linalg.inv(fisher_matrix)
-            except np.linalg.LinAlgError:
-                raise io_mp.ConfigurationError(
-                    "Could not find Fisher matrix, please remove the "
-                    "option --fisher and run with Metropolis-Hastings "
-                    "or another sampling method.")
-                fisher_invert_success = False
-                done = True
-
-            # Write it to the file
-            if fisher_invert_success:
-                io_mp.write_covariance_matrix(
-                    cov_matrix, parameter_names,
-                    os.path.join(command_line.folder, 'covariance_fisher.mat'))
-
-                command_line.cov = os.path.join(
-                    command_line.folder, 'covariance_fisher.mat')
-
-                done = True
-                # Check if the diagonal elements are non-negative
-                for h, elem in enumerate(parameter_names):
-                    if cov_matrix[h][h] < 0:
-                        warnings.warn(
-                            "Covariance has negative values on diagonal, "
-                            "moving to a better point and repeating "
-                            "the Fisher computation")
-                        done = False
-                        break
-
-                if not done:
-                    # Solve for a step
-                    step = np.dot(cov_matrix, gradient)
-                    # Now modify data_parameters TODO HERE update center
-                    for k, elem in enumerate(parameter_names):
-                        data.mcmc_parameters[elem]['initial'][0] = data.mcmc_parameters[elem]['initial'][0]-step[k]
-                        temp_data.mcmc_parameters[elem]['initial'][0] = temp_data.mcmc_parameters[elem]['initial'][0]-step[k]
-                        print "Moved %s to:"%(elem),data.mcmc_parameters[elem]['initial'][0]
-
+        
     # if the user provides a .covmat file or if user asks to compute a fisher matrix
     if command_line.cov is not None:
 
@@ -279,7 +212,7 @@ def get_covariance_matrix(cosmo1, cosmo2, data, command_line):
                 for j in range(len(line)):
                     matrix[i][j] = np.array(line[j], 'float64')
                 i += 1
-
+                
         # First print out
         if not command_line.silent and not command_line.quiet:
             print('\nInput covariance matrix:')
@@ -455,12 +388,12 @@ def get_minimum(cosmo1, cosmo2, data, command_line, covmat):
             bounds[index,1] = data.mcmc_parameters[elem]['initial'][2]
         cons += ({'type': 'ineq', 'fun': lambda x: x[index] - bounds[index,0]},
                  {'type': 'ineq', 'fun': lambda x: bounds[index,1] - x[index]},)
-        print 'bounds on ',elem,' : ',bounds[index,0],bounds[index,1]
+        print('bounds on ',elem,' : ',bounds[index,0],bounds[index,1])
 
     #FK: use list-comprehension so that the parameter values are distinguishable from step to step
-    print 'parameters: ',[param for param in parameters]
-    print 'stepsizes: ',stepsizes[0]
-    print 'bounds: ',bounds
+    print('parameters: ', [param for param in parameters])
+    print('stepsizes: ', stepsizes[0])
+    print('bounds: ', bounds)
 
     #minimum, chi2 = op.fmin_cg(chi2_eff,
     # Use unconstrained Polak & Ribiere conjugate gradient algorithm
@@ -517,9 +450,9 @@ def get_minimum(cosmo1, cosmo2, data, command_line, covmat):
     #                                   bounds,
     #                                   args = (cosmo,data))
 
-    print 'Final output of minimize'
+    print('Final output of minimize')
     for index,elem in enumerate(parameter_names):
-        print elem, 'new:', result.x[index], ', old:', parameters[index]
+        print(elem, 'new:', result.x[index], ', old:', parameters[index])
 
     #FK: return also min chi^2:
     return result.x, result.fun
@@ -527,12 +460,12 @@ def get_minimum(cosmo1, cosmo2, data, command_line, covmat):
 def chi2_eff(params, cosmo1, cosmo2, data, bounds=False):
     parameter_names = data.get_mcmc_parameters(['varying'])
     for index, elem in enumerate(parameter_names):
-        #print elem,params[index]
+        #print(elem,params[index])
         data.mcmc_parameters[elem]['current'] = params[index]
         if not type(bounds) == type(False):
             if (params[index] < bounds[index,0]) or (params[index] > bounds[index,1]):
                 chi2 = 1e30
-                print elem+' exceeds bounds with value %f and bounds %f < x < %f' %(params[index],bounds[index,0],bounds[index,1])
+                print(elem+' exceeds bounds with value %f and bounds %f < x < %f' %(params[index],bounds[index,0],bounds[index,1]))
                 return chi2
     # Update current parameters to the new parameters, only taking steps as requested
     data.update_cosmo1_arguments()
@@ -540,7 +473,7 @@ def chi2_eff(params, cosmo1, cosmo2, data, bounds=False):
     # Compute loglike value for the new parameters
     chi2 = -2.*compute_lkl(cosmo1, cosmo2, data)
     #FK: use list-comprehension so that the parameter values are distinguishable from step to step
-    print 'In minimization: ',chi2,' at ',[param for param in params]
+    print('In minimization: ',chi2,' at ',[param for param in params])
     return chi2
 
 def gradient_chi2_eff(params, cosmo1, cosmo2, data, bounds=False):
@@ -631,9 +564,9 @@ def get_fisher_matrix(cosmo1, cosmo2, data, command_line, inv_fisher_matrix, min
     while fisher_iteration < data.fisher_step_it and not fisher_status:
         fisher_iteration += 1
         # Compute the Fisher matrix and the gradient array at the center point.
-        print ("Compute Fisher [iteration %d/%d] with following stepsizes for scaled parameters:" % (fisher_iteration,data.fisher_step_it))
+        print("Compute Fisher [iteration %d/%d] with following stepsizes for scaled parameters:" % (fisher_iteration,data.fisher_step_it))
         for index in range(len(parameter_names)):
-            print "%s : diagonal element = %e" % (parameter_names[index],inv_fisher_matrix[index,index])
+            print("%s : diagonal element = %e" % (parameter_names[index],inv_fisher_matrix[index,index]))
 
         # For rotating the step array, not implemented
         step_matrix = np.identity(len(parameter_names), dtype='float64')
@@ -642,7 +575,7 @@ def get_fisher_matrix(cosmo1, cosmo2, data, command_line, inv_fisher_matrix, min
         fisher_matrix, gradient = compute_fisher(data, command_line, cosmo1, cosmo2, center, stepsize, step_matrix)
         # If we want to rotate back to the cosmological parameter basis
         if not command_line.silent:
-            print ("Fisher matrix computed [iteration %d/%d]" % (fisher_iteration,data.fisher_step_it))
+            print("Fisher matrix computed [iteration %d/%d]" % (fisher_iteration,data.fisher_step_it))
 
         # Compute inverse of the fisher matrix, catch LinAlgError exception
         try:
@@ -657,10 +590,10 @@ def get_fisher_matrix(cosmo1, cosmo2, data, command_line, inv_fisher_matrix, min
         try:
             la.cholesky(inv_fisher_matrix).T
             fisher_status = 1
-            print ("Inverse Fisher matrix computation successful! Saving Fisher and inverse Fisher matrices.")
+            print("Inverse Fisher matrix computation successful! Saving Fisher and inverse Fisher matrices.")
         except:
             if not command_line.silent:
-                print 'Fisher matrix computation failed - inverse not positive definite'
+                print('Fisher matrix computation failed - inverse not positive definite')
             if data.fisher_step_it < 2:
                 raise io_mp.ConfigurationError(
                     "Could not find Fisher matrix inverse and fisher step iteration is not enabled. Use flag "
@@ -675,7 +608,7 @@ def get_fisher_matrix(cosmo1, cosmo2, data, command_line, inv_fisher_matrix, min
             # iterate on the target fisher delta (--fisher-delta), increasing
             # it incrementally by an amount equal to the original fisher delta.
             if not command_line.silent:
-                print 'Increasing fisher_iteration by 1, to %d, and adjusting fisher_delta from %f to %f' %(fisher_iteration+1, data.fisher_delta, data.fisher_delta + command_line.fisher_delta)
+                print('Increasing fisher_iteration by 1, to %d, and adjusting fisher_delta from %f to %f' %(fisher_iteration+1, data.fisher_delta, data.fisher_delta + command_line.fisher_delta))
             data.fisher_delta += command_line.fisher_delta
             fisher_status = 0
 
@@ -767,12 +700,6 @@ def compute_lkl(cosmo1, cosmo2, data):
     if cosmo2.state and data.need_cosmo2_update is True:
         cosmo2.struct_cleanup()
 
-    # due to large memory requirement when shooting for sigma8 as input, I'll require a clean-up in every step (might increase runtime?!)
-    # this didn't solve the problem at all... it's even worse now?!
-    '''
-    if cosmo.state is True:
-        cosmo.struct_cleanup()
-    '''
     # If the data needs to change, then do a normal call to the cosmological
     # compute function. Note that, even if need_cosmo update is True, this
     # function must be called if the jumping factor is set to zero. Indeed,
@@ -823,6 +750,11 @@ def compute_lkl(cosmo1, cosmo2, data):
             try:
                 cosmo1.compute(["lensing"])
             except CosmoComputationError as failure_message:
+                # could be useful to uncomment for debugging:
+                #np.set_printoptions(precision=30, linewidth=150)
+                #print('cosmo params')
+                #print(data.cosmo1_arguments)
+                #print(data.cosmo1_arguments['tau_reio'])
                 sys.stderr.write(str(failure_message)+'\n')
                 sys.stderr.flush()
                 return data.boundary_loglike
@@ -881,9 +813,9 @@ def compute_lkl(cosmo1, cosmo2, data):
             except CosmoComputationError as failure_message:
                 # could be useful to uncomment for debugging:
                 #np.set_printoptions(precision=30, linewidth=150)
-                #print 'cosmo params'
-                #print data.cosmo_arguments
-                #print data.cosmo_arguments['tau_reio']
+                #print('cosmo params')
+                #print(data.cosmo2_arguments)
+                #print(data.cosmo2_arguments['tau_reio'])
                 sys.stderr.write(str(failure_message)+'\n')
                 sys.stderr.flush()
                 return data.boundary_loglike
@@ -903,7 +835,7 @@ def compute_lkl(cosmo1, cosmo2, data):
     # imaginary number i.
     flag_wrote_fiducial = 0
 
-    for likelihood in data.lkl.itervalues():
+    for likelihood in dictvalues(data.lkl):
         if likelihood.need_update is True:
             value = likelihood.loglkl(cosmo1, cosmo2, data)
             # Storing the result
@@ -912,13 +844,13 @@ def compute_lkl(cosmo1, cosmo2, data):
         else:
             value = likelihood.backup_value
         if data.command_line.display_each_chi2:
-            print "-> for ",likelihood.name,":  loglkl=",value,",  chi2eff=",-2.*value
+            print("-> for ",likelihood.name,":  loglkl=",value,",  chi2eff=",-2.*value)
         loglike += value
         # In case the fiducial file was written, store this information
         if value == 1j:
             flag_wrote_fiducial += 1
     if data.command_line.display_each_chi2:
-        print "-> Total:  loglkl=",loglike,",  chi2eff=",-2.*loglike
+        print("-> Total:  loglkl=",loglike,",  chi2eff=",-2.*loglike)
 
     # TODO: This does not work straightforward for two sets of cosmo-parameters...
     # FK: ugly solution below...
@@ -935,16 +867,17 @@ def compute_lkl(cosmo1, cosmo2, data):
                 if elem[-2:] == '_2':
                     names2_without_subscripts.append(elem[:-2])
             derived1 = cosmo1.get_current_derived_parameters(names1_without_subscripts)
-            for name, value in derived1.iteritems():
+            for name, value in dictitems(derived1):
                 data.mcmc_parameters[name + '_1']['current'] = value
             derived2 = cosmo2.get_current_derived_parameters(names2_without_subscripts)
-            for name, value in derived2.iteritems():
+            for name, value in dictitems(derived2):
                 data.mcmc_parameters[name + '_2']['current'] = value
         # FK: backward-compatibility is much more complicated and not needed now!
-        #except AttributeError:
+        # except AttributeError:
             # This happens if the classy wrapper is still using the old
             # convention, expecting data as the input parameter
-            #cosmo1.get_current_derived_parameters(data)
+            # cosmo1.get_current_derived_parameters(data)
+            # cosmo2.get_current_derived_parameters(data)
         except CosmoSevereError:
             raise io_mp.CosmologicalModuleError(
                 "Could not write the current derived parameters")
@@ -1013,7 +946,7 @@ def compute_fisher(data, command_line, cosmo1, cosmo2, center, step_size, step_m
                         continue
                     if k == h and elem == 'diag':
                         if not command_line.silent:
-                            print '---> Computing fisher element (%d,%d)' % (k,h)
+                            print('---> Computing fisher element (%d,%d)' % (k,h))
                         temp1, temp2, diff_1 = compute_fisher_element(
                             data, command_line, cosmo1, cosmo2, center, step_matrix, loglike_min, step_index,
                             (elem_k, kdiff))
@@ -1022,7 +955,7 @@ def compute_fisher(data, command_line, cosmo1, cosmo2, center, step_size, step_m
                         step_size[k] = diff_1
                     elif k < h and elem == 'off-diag':
                         if not command_line.silent:
-                            print '---> Computing fisher element (%d,%d), part %d/2' % (k,h,step_index+1)
+                            print('---> Computing fisher element (%d,%d), part %d/2' % (k,h,step_index+1))
                         fisher_matrix[k][h] += compute_fisher_element(
                             data, command_line, cosmo1, cosmo2, center, step_matrix, loglike_min, step_index,
                             (elem_k, kdiff),
@@ -1232,7 +1165,7 @@ def compute_fisher_step(data, command_line, cosmo1, cosmo2, center, step_matrix,
                 elif (step_index_2 == 0 and diff_2[2] > 0) or (step_index_2 == 1 and diff_2[2] < 0):
                     step_array[index] = -step_array[index]
                     if not command_line.silent:
-                        print 'changed step array from (%f,%f) to (%f,%f)' %(-step_array[index],diff_2[2],step_array[index],diff_2[2])
+                        print('changed step array from (%f,%f) to (%f,%f)' %(-step_array[index],diff_2[2],step_array[index],diff_2[2]))
 
         if two and not step_index_2 == None:
             index = parameter_names.index(name_2)
@@ -1260,7 +1193,7 @@ def compute_fisher_step(data, command_line, cosmo1, cosmo2, center, step_matrix,
             elif (step_index_1 == 0 and diff_1[2] > 0) or (step_index_1 == 1 and diff_1[2] < 0):
                 step_array[index] = -step_array[index]
                 if not command_line.silent:
-                    print 'changed step array from (%f,%f) to (%f,%f)' %(diff_1[2],-step_array[index],diff_1[2],step_array[index])
+                    print('changed step array from (%f,%f) to (%f,%f)' %(diff_1[2],-step_array[index],diff_1[2],step_array[index]))
 
         # Rotate the step vector to the basis of the covariance matrix
         # Not implemented, step_matrix is a unit matrix
@@ -1300,7 +1233,7 @@ def compute_fisher_step(data, command_line, cosmo1, cosmo2, center, step_matrix,
             # Calculate Delta ln(L)
             deltaloglike = loglike - loglike_min
             if not command_line.silent:
-                print ">>>> For %s[%d],Delta ln(L)=%e using min(ln(L))=%e"%(name_1,int(np.sign(diff_1[step_index_1])),deltaloglike,loglike_min)
+                print(">>>> For %s[%d],Delta ln(L)=%e using min(ln(L))=%e"%(name_1,int(np.sign(diff_1[step_index_1])),deltaloglike,loglike_min))
             if loglike-loglike_min > 0.:
                 warnings.warn('Loglike(step) < Loglike(center): Fisher matrix calculation not centered on the minimum, exercise caution')
             # If -Delta ln(L) is larger than desired reduce stepsize
@@ -1308,11 +1241,11 @@ def compute_fisher_step(data, command_line, cosmo1, cosmo2, center, step_matrix,
                 if diff_1[2]:
                     diff_1[2] -= np.sign(diff_1[2]) * 0.5 * abs(backup_step[abs(repeat)-1] - diff_1[2])
                     if not command_line.silent:
-                        print 'Updated stepsize. Before, after =',backup_step[abs(repeat)],diff_1[2]
+                        print('Updated stepsize. Before, after =',backup_step[abs(repeat)],diff_1[2])
                 else:
                     diff_1[step_index_1] -= np.sign(diff_1[step_index_1]) * 0.5 * abs(backup_step[abs(repeat)-1] - diff_1[step_index_1])
                     if not command_line.silent:
-                        print 'Updated stepsize. Before, after =',backup_step[abs(repeat)],diff_1[step_index_1]
+                        print('Updated stepsize. Before, after =',backup_step[abs(repeat)],diff_1[step_index_1])
                 repeat = len(backup_step)
                 # If stepsize is not converging to the required tolerance within 10 steps
                 # relax tolerance recursively tolerance_i+1 = tolerance_i * (1 + N_step)/10,
@@ -1327,11 +1260,11 @@ def compute_fisher_step(data, command_line, cosmo1, cosmo2, center, step_matrix,
                     if diff_1[2]:
                         diff_1[2] += np.sign(diff_1[2]) * 0.5 * abs(backup_step[abs(repeat)-1] - diff_1[2])
                         if not command_line.silent:
-                            print 'Updated stepsize. Before, after =',backup_step[abs(repeat)],diff_1[2]
+                            print('Updated stepsize. Before, after =',backup_step[abs(repeat)],diff_1[2])
                     else:
                         diff_1[step_index_1] += np.sign(diff_1[step_index_1]) * 0.5 * abs(backup_step[abs(repeat)-1] - diff_1[step_index_1])
                         if not command_line.silent:
-                            print 'Updated stepsize. Before, after =',backup_step[abs(repeat)],diff_1[step_index_1]
+                            print('Updated stepsize. Before, after =',backup_step[abs(repeat)],diff_1[step_index_1])
                     repeat = len(backup_step)
                     # If stepsize is not converging to the required tolerance within 10 steps
                     # relax tolerance recursively tolerance_i+1 = tolerance_i * (1 + N_step)/10,
@@ -1344,7 +1277,7 @@ def compute_fisher_step(data, command_line, cosmo1, cosmo2, center, step_matrix,
                     else:
                         diff_1[step_index_1] *= 2.
                     if not command_line.silent:
-                        print 'Updated stepsize. Before, after =',backup_step[abs(repeat)],diff_1[step_index_1]
+                        print('Updated stepsize. Before, after =',backup_step[abs(repeat)],diff_1[step_index_1])
                     repeat = -len(backup_step)
                     # If stepsize is not converging to the required tolerance within 10 steps
                     # relax tolerance recursively tolerance_i+1 = tolerance_i * (1 + N_step)/10,
@@ -1396,7 +1329,7 @@ def adjust_fisher_bounds(data, command_line, center, step_size):
     for index, elem in enumerate(data.get_mcmc_parameters(['varying'])):
         param = data.mcmc_parameters[elem]['initial']
         if not command_line.silent:
-            print elem,'with center =',center[elem],', lower bound =',param[1],' and upper bound =',param[2]
+            print(elem,'with center =',center[elem],', lower bound =',param[1],' and upper bound =',param[2])
 
         # Non-Gaussian parameters are intrinsically problematic and
         # may need to be handled separately by the advanced user.
@@ -1412,31 +1345,31 @@ def adjust_fisher_bounds(data, command_line, center, step_size):
 
         #if elem == 'xi_sz_cib':
         #    step_size[index,2] = param[2] - center[elem]#step_size[index,1]
-        #    print 'Encountered Planck nuisance parameter %s, assuming symmetry and setting stepsize to +%f' %(elem,step_size[index,2])
+        #    print('Encountered Planck nuisance parameter %s, assuming symmetry and setting stepsize to +%f' %(elem,step_size[index,2]))
         #    continue
             #if center[elem] + step_size[index,2] < param[2]:
             #    continue
             #else:
             #    step_size[index,2] = param[2] - center[elem]
-            #    print 'New step for %s with center %f exceeded boundary %f, instead setting stepsize to +%f' %(elem,center[elem],param[2],step_size[index,2])
+            #    print('New step for %s with center %f exceeded boundary %f, instead setting stepsize to +%f' %(elem,center[elem],param[2],step_size[index,2]))
             #    pass
         #elif elem == 'A_sz':
         #    step_size[index,2] = param[1] - center[elem]#step_size[index,0]
-        #    print 'Encountered Planck nuisance parameter %s, assuming symmetry and setting stepsize to %f' %(elem,step_size[index,2])
+        #    print('Encountered Planck nuisance parameter %s, assuming symmetry and setting stepsize to %f' %(elem,step_size[index,2]))
         #    continue
             #if center[elem] + step_size[index,2] > param[1]:
             #    continue
             #else:
             #    step_size[index,2] = param[1] - center[elem]
-            #    print 'New step for %s with center %f exceeded boundary %f, instead setting stepsize to %f' %(elem,center[elem],param[1],step_size[index,2])
+            #    print('New step for %s with center %f exceeded boundary %f, instead setting stepsize to %f' %(elem,center[elem],param[1],step_size[index,2]))
             #    continue
         #elif elem == 'ksz_norm':
         #    step_size[index,2] = param[1] - center[elem]#step_size[index,0]
-        #    print 'Encountered Planck nuisance parameter %s, assuming symmetry and setting stepsize to %f' %(elem,step_size[index,2])
+        #    print('Encountered Planck nuisance parameter %s, assuming symmetry and setting stepsize to %f' %(elem,step_size[index,2]))
         #    continue
         #elif elem == 'M_tot':
         #    step_size[index,2] = step_size[index,1]
-        #    print 'Encountered Planck nuisance parameter %s, assuming symmetry and setting stepsize to %f' %(elem,step_size[index,2])
+        #    print('Encountered Planck nuisance parameter %s, assuming symmetry and setting stepsize to %f' %(elem,step_size[index,2]))
         #    continue
 
         boundary_flag = 0
@@ -1447,26 +1380,26 @@ def adjust_fisher_bounds(data, command_line, center, step_size):
             # When encountering a boundary, set stepsize to boundary limit if reasonable
             if center[elem] + data.fisher_sym_lkl*step_size[index,0] > param[1] > center[elem] + step_size[index,0]:
                 if not command_line.silent:
-                    print 'For %s encountered lower boundary %f with center value %f, changing stepsize from %f and +%f' %(elem,param[1],center[elem],step_size[index,0],step_size[index,1])
+                    print('For %s encountered lower boundary %f with center value %f, changing stepsize from %f and +%f' %(elem,param[1],center[elem],step_size[index,0],step_size[index,1]))
                 step_size[index,0] = -(center[elem] - param[1])
                 if data.use_symmetric_step:
                     step_size[index,1] = center[elem] - param[1]
                 if not command_line.silent:
-                    print 'to %f and +%f' %(step_size[index,0],step_size[index,1])
+                    print('to %f and +%f' %(step_size[index,0],step_size[index,1]))
                 boundary_flag = 1
             # Otherwise assumme symmetric likelihood and use positive step
             elif param[1] >= center[elem] + data.fisher_sym_lkl*step_size[index,0]:
                 if not command_line.silent:
-                    print 'For %s encountered lower boundary %f with center value %f and step_size %f, this is closer to the central value than %f*step_size' %(elem,param[1],center[elem],step_size[index,0],data.fisher_sym_lkl)
+                    print('For %s encountered lower boundary %f with center value %f and step_size %f, this is closer to the central value than %f*step_size' %(elem,param[1],center[elem],step_size[index,0],data.fisher_sym_lkl))
                 boundary_flag = 2
                 if param[2] == None or param[2] > center[elem] + step_size[index,1]:
                     if not command_line.silent:
-                        print 'Upper boundary not a problem, so assuming symmetry and only computing the positive step'
+                        print('Upper boundary not a problem, so assuming symmetry and only computing the positive step')
                     step_size[index,2] = step_size[index,1]
                     warnings.warn('Negative step exceeded boundary for '+elem+' - using symmetry assumption with stepsize = %f' % step_size[index,2])
                 else:
                     if not command_line.silent:
-                        print 'Upper boundary also a problem, will adjust step later'
+                        print('Upper boundary also a problem, will adjust step later')
                     else:
                         pass
 
@@ -1477,7 +1410,7 @@ def adjust_fisher_bounds(data, command_line, center, step_size):
             # When encountering a boundary, set stepsize to boundary limit if reasonable.
             if center[elem] + data.fisher_sym_lkl*step_size[index,1] < param[2] < center[elem] + step_size[index,1] and boundary_flag < 2:
                 if not command_line.silent:
-                    print 'For %s encountered upper boundary %f with center value %f, changing stepsize from %f and +%f' %(elem,param[2],center[elem],step_size[index,0],step_size[index,1])
+                    print('For %s encountered upper boundary %f with center value %f, changing stepsize from %f and +%f' %(elem,param[2],center[elem],step_size[index,0],step_size[index,1]))
                 # If both boundaries are smaller than the stepsize, set stepsize to the
                 # smaller of the two.
                 if not boundary_flag or (boundary_flag == 1 and abs(step_size[index,0]) > abs((param[2] - center[elem]))):
@@ -1485,16 +1418,16 @@ def adjust_fisher_bounds(data, command_line, center, step_size):
                         step_size[index,0] = -(param[2] - center[elem])
                     step_size[index,1] = param[2] - center[elem]
                     if not command_line.silent:
-                        print 'to %f and +%f' %(step_size[index,0],step_size[index,1])
+                        print('to %f and +%f' %(step_size[index,0],step_size[index,1]))
                 else:
                     if not command_line.silent:
-                        print 'Lower boundary nearer center than the upper boundary, will use previously adjusted step_size %f and %f' %(step_size[index,0],step_size[index,1])
+                        print('Lower boundary nearer center than the upper boundary, will use previously adjusted step_size %f and %f' %(step_size[index,0],step_size[index,1]))
                     else:
                         pass
             # Otherwise assumme symmetric likelihood and use negative step
             elif param[2] <= center[elem] + step_size[index,1]:
                 if not command_line.silent:
-                    print 'For %s encountered upper boundary %f with center value %f and step_size %f, this is closer to the central value than %f*step_size' %(elem,param[2],center[elem],step_size[index,1],data.fisher_sym_lkl)
+                    print('For %s encountered upper boundary %f with center value %f and step_size %f, this is closer to the central value than %f*step_size' %(elem,param[2],center[elem],step_size[index,1],data.fisher_sym_lkl))
                 # Check if the lower bound poses a problem for symmetric step
                 if boundary_flag < 2:
                     step_size[index,2] = step_size[index,0]

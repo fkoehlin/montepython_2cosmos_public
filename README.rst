@@ -3,8 +3,9 @@ Monte Python 2cosmos, a modification of Monte Python,
 a Monte Carlo Markov Chain code (with CLASS!)
 ===========================================================
 
-:Main developers: Fabian Koehlinger <fabian.koehlinger@ipmu.jp>,
-                  Thejs Brinckmann <brinckmann@physik.rwth-aachen.de>
+:Main developers: Fabian Koehlinger <fabian.koehlinger@ipmu.jp> (2cosmos),
+                  Thejs Brinckmann <brinckmann@physik.rwth-aachen.de>,
+                  Nils Schoeneberg <schoeneberg@physik.rwth-aachen.de> (Python3)
 :Author: Benjamin Audren <benjamin.audren@epfl.ch>
 :License: MIT
 

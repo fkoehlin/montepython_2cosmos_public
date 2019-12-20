@@ -15,12 +15,14 @@ Python (:class:`Data` <data.Data>, Class and :class:`Likelihood`
 <likelihood_class.Likelihood>)
 
 """
+from __future__ import print_function
 import numpy as np
 import os
 import warnings
 import logging
 
 import io_mp
+from io_mp import dictitems,dictvalues,dictkeys
 import sampler
 from cosmoHammer.likelihood.chain.LikelihoodComputationChain import (
     LikelihoodComputationChain)
@@ -90,7 +92,7 @@ def run(cosmo1, cosmo2, data, command_line):
     # Add data and cosmo as two core modules. Note that the order is important
     # here, since data must be called before cosmo.
     chain.addCoreModule(data)
-    # not sure that this will work...
+    # FK: not sure that this will work...
     chain.addCoreModule(cosmo1)
     chain.addCoreModule(cosmo2)
 
@@ -198,7 +200,7 @@ class DerivedUtil(SampleFileUtil):
         # extend the pos array to also contain the value of the derived
         # parameters
         derived = np.array(
-            [[a for a in elem.itervalues()] for elem in data])
+            [[a for a in dictvalues(elem)] for elem in data])
         final = np.concatenate((pos, derived), axis=1)
 
         posFile.write("\n".join(

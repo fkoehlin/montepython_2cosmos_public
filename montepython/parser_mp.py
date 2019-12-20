@@ -12,13 +12,13 @@ The fancy short/long help formatting, as well as the automatic help creation
 from docstrings is entirely due to Francesco Montesano.
 
 """
+from __future__ import print_function
 import os
 import sys
 import textwrap as tw
 import re
 import argparse as ap  # Python module to handle command line arguments
 import warnings
-
 import io_mp
 
 
@@ -189,7 +189,7 @@ def custom_help(split_string="<++>"):
         def __call__(self, parser, namespace, values, option_string=None):
 
             # create the help string and store it into a string
-            from StringIO import StringIO
+            from io import StringIO
             fstr = StringIO()
             try:
                 parser.print_help(file=fstr)
@@ -634,6 +634,8 @@ def create_parser():
             (*OPT*) (flag)<++>
         <**>--noplot-2d<**> : bool
             <++>produce only the 1d posterior plot<++> (*OPT*) (flag)<++>
+        <**>--noplot-2d-diag<**> : bool
+            <++>produce 2d contours without 1d posterior plot<++> (*OPT*) (flag)<++>
         <**>--contours-only<**> : bool
             <++>do not fill the contours on the 2d plots<++> (*OPT*) (flag)<++>
         <**>--all<**> : None
@@ -942,6 +944,9 @@ def create_parser():
     # -- if you just want to output 1d posterior distributions (faster)
     infoparser.add_argument('--noplot-2d', help=helpdict['noplot-2d'],
                             dest='plot_2d', action='store_false')
+    # -- if you just want to output triangle with 2d contours
+    infoparser.add_argument('--noplot-2d-diag', help=helpdict['noplot-2d-diag'],
+                            dest='plot_diag', action='store_false')
     # -- when plotting 2d posterior distribution, use contours and not contours
     # filled (might be useful when comparing several folders)
     infoparser.add_argument('--contours-only', help=helpdict['contours-only'],

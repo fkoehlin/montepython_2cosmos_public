@@ -4,6 +4,7 @@
 
 .. moduleauthor:: Benjamin Audren <benjamin.audren@epfl.ch>
 """
+from __future__ import print_function
 try:
     from collections import OrderedDict as od
 except ImportError:
@@ -13,7 +14,7 @@ from multiprocessing import Pool
 import os
 import warnings
 import math
-
+import sys
 import io_mp
 import sampler
 from data import Data
@@ -107,7 +108,7 @@ def run(cosmo, data, command_line):
     # Note the use of translate_chain_star, and not translate_chain, because of
     # the limitations of the `map` function (it only takes one argument). The
     # `_star` function simply unwraps the argument.
-    print '\nStart extracting the chains:\n'
+    print('\nStart extracting the chains:\n')
     pool.map(translate_chain_star, args)
     # Close the pool, and join everything (the join might not be needed)
     pool.close()
@@ -127,18 +128,18 @@ def recover_new_experiments(data, command_line, starting_folder):
     # Go through the file, and stop when you find the good line. The previous
     # way of doing, to simply initialise another data instance fails when using
     # Planck. Indeed, clik likelihoods can not be initialised twice.
-    print 'Reading the starting folder'
-    print '---------------------------'
+    print('Reading the starting folder')
+    print('---------------------------')
     with open(modified_command_line.param, 'r') as init:
         for line in init:
             if line.find('data.experiments') != -1:
                 _, experiments = line.split('=')
                 experiments = experiments.strip()
-    print 'The likelihood will be computed only for:'
+    print('The likelihood will be computed only for:'
     new_experiments = [
         elem for elem in data.experiments if elem not in experiments]
-    print ' ->',
-    print ', '.join(new_experiments)
+    sys.stdout.write(' ->')
+    print(', '.join(new_experiments))
 
     return new_experiments
 
@@ -156,7 +157,7 @@ def translate_chain(data, cosmo, command_line,
 
     input_path = os.path.join(starting_folder, chain_name)
     output_path = os.path.join(command_line.folder, chain_name)
-    print ' -> reading ', input_path
+    print(' -> reading ', input_path)
     parameter_names = data.get_mcmc_parameters(['varying'])
     with open(input_path, 'r') as input_chain:
         with open(output_path, 'w') as output_chain:
@@ -185,7 +186,7 @@ def translate_chain(data, cosmo, command_line,
                 # Accept the point
                 sampler.accept_step(data)
                 io_mp.print_vector([output_chain], N*weight, newloglike, data)
-    print output_path, 'written'
+    print(output_path, 'written')
 
 
 def translate_chain_star(args):

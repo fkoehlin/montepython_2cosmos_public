@@ -1,0 +1,13 @@
+# these files below need to be modified for 2cosmos features:
+montepython/cosmo_hammer.py
+montepython/io_mp.py
+montepython/initialise.py
+montepython/data.py
+montepython/likelihood_class.py
+montepython/mcmc.py
+montepython/MultiNest.py
+montepython/PolyChord.py
+montepython/run.py
+montepython/sampler.py
+# and of course the likelihoods need to be modified accordingly, too!
+montepython/likelihoods/*

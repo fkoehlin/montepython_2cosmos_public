@@ -35,6 +35,7 @@
 # i.e. flat cosmologies!
 ####################################################################
 
+from __future__ import print_function
 from montepython.likelihood_class import Likelihood
 import io_mp
 import parser_mp
@@ -46,6 +47,12 @@ import os
 import numpy as np
 import math
 #from timeit import default_timer as timer
+
+# Python 2.x - 3.x compatibility: Always use more efficient range function
+try:
+    xrange
+except NameError:
+    xrange = range
 
 class kv450_cf_2cosmos_likelihood_public(Likelihood):
 
@@ -70,7 +77,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
         folder_name = os.path.join(self.data_directory, 'FOR_MONTE_PYTHON')
         if not os.path.isdir(folder_name):
             os.makedirs(folder_name)
-            print 'Created folder for Monte Python related data files: \n', folder_name, '\n'
+            print('Created folder for Monte Python related data files: \n', folder_name, '\n')
 
         # for loading of Nz-files:
         self.z_bins_min = [0.1, 0.3, 0.5, 0.7, 0.9]
@@ -97,9 +104,9 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
         if self.method_non_linear_Pk in ['halofit', 'HALOFIT', 'Halofit', 'hmcode', 'Hmcode', 'HMcode', 'HMCODE']:
             self.need_cosmo1_arguments(data, {'non linear': self.method_non_linear_Pk})
             self.need_cosmo2_arguments(data, {'non linear': self.method_non_linear_Pk})
-            print 'Using {:} to obtain the non-linear corrections for the matter power spectrum, P(k, z)! \n'.format(self.method_non_linear_Pk)
+            print('Using {:} to obtain the non-linear corrections for the matter power spectrum, P(k, z)! \n'.format(self.method_non_linear_Pk))
         else:
-            print 'Only using the linear P(k, z) for ALL calculations \n (check keywords for "method_non_linear_Pk"). \n'
+            print('Only using the linear P(k, z) for ALL calculations \n (check keywords for "method_non_linear_Pk"). \n')
 
         if self.method_non_linear_Pk in ['hmcode', 'Hmcode', 'HMcode', 'HMCODE']:
             #self.need_cosmo_arguments(data, {'hmcode_min_k_max': 1000.})
@@ -110,7 +117,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
                 #print "You are using HMcode, therefore increased k_max_h_by_Mpc to: {:.2f} \n".format(min_kmax_hmc)
 
         self.nzbins = len(self.z_bins_min)
-        self.nzcorrs = self.nzbins * (self.nzbins + 1) / 2
+        self.nzcorrs = self.nzbins * (self.nzbins + 1) // 2
 
         # Create labels for loading of dn/dz-files:
         self.zbin_labels = []
@@ -150,21 +157,21 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
                     zpcheck = zptemp
                     if np.sum((zptemp - zpcheck)**2) > 1e-6:
                         raise io_mp.LikelihoodError('The redshift values for the window files at different bins do not match.')
-                #print 'Loaded n(zbin{:}) from: \n'.format(zbin + 1), window_file_path
+                #print('Loaded n(zbin{:}) from: \n'.format(zbin + 1), window_file_path)
                 # we add a zero as first element because we want to integrate down to z = 0!
                 z_samples += [np.concatenate((np.zeros(1), zptemp + shift_to_midpoint))]
                 hist_samples += [np.concatenate((np.zeros(1), hist_pz))]
             else:
                 raise io_mp.LikelihoodError("File not found:\n %s"%window_file_path)
-        print 'Loaded redshift distributions from: \n', os.path.join(
-                self.data_directory, 'REDSHIFT_DISTRIBUTIONS/Nz_{0:}/Nz_{0:}_Mean/'.format(self.nz_method)), '\n'
+        print('Loaded redshift distributions from: \n', os.path.join(
+                self.data_directory, 'REDSHIFT_DISTRIBUTIONS/Nz_{0:}/Nz_{0:}_Mean/'.format(self.nz_method)), '\n')
 
         z_samples = np.asarray(z_samples)
         hist_samples = np.asarray(hist_samples)
 
         # prevent undersampling of histograms!
         if self.nzmax < len(zptemp):
-            print "You are trying to integrate at lower resolution than supplied by the n(z) histograms. \n Increase nzmax! Aborting run now... \n"
+            print("You are trying to integrate at lower resolution than supplied by the n(z) histograms. \n Increase nzmax! Aborting run now... \n")
             exit()
         # if that's the case, we want to integrate at histogram resolution and need to account for
         # the extra zero entry added
@@ -172,12 +179,12 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
             self.nzmax = z_samples.shape[1]
             # requires that z-spacing is always the same for all bins...
             self.z_p = z_samples[0, :]
-            print 'Redshift integrations performed at resolution of redshift distribution histograms! \n'
+            print('Redshift integrations performed at resolution of redshift distribution histograms! \n')
         # if we interpolate anyway at arbitrary resolution the extra 0 doesn't matter
         else:
             self.nzmax += 1
             self.z_p = np.linspace(z_samples.min(), z_samples.max(), self.nzmax)
-            print 'Redshift integrations performed at set "nzmax" resolution! \n'
+            print('Redshift integrations performed at set "nzmax" resolution! \n')
 
         self.pz = np.zeros((self.nzmax, self.nzbins))
         self.pz_norm = np.zeros(self.nzbins, 'float64')
@@ -256,8 +263,8 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
             mask1 = np.ones(2 * self.nzcorrs * self.ntheta)
             mask2 = np.ones(2 * self.nzcorrs * self.ntheta)
 
-        #print mask1, len(np.where(mask1 == 1)[0])
-        #print mask2, len(np.where(mask2 == 1)[0])
+        #print(mask1, len(np.where(mask1 == 1)[0]))
+        #print(mask2, len(np.where(mask2 == 1)[0]))
         # for tomographic splits:
         # e.g.
         # mask1 = fiducial
@@ -266,8 +273,8 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
         if self.subtract_mask2_from_mask1:
             mask1 = mask1 - mask2
 
-        #print mask1, len(np.where(mask1 == 1)[0])
-        #print mask2, len(np.where(mask2 == 1)[0])
+        #print(mask1, len(np.where(mask1 == 1)[0]))
+        #print(mask2, len(np.where(mask2 == 1)[0]))
 
         self.mask_indices1 = np.where(mask1 == 1)[0]
         self.mask_indices2 = np.where(mask2 == 1)[0]
@@ -291,7 +298,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
         idx2, idx1 = np.meshgrid(range(covmat.shape[0]), range(covmat.shape[0]))
         header = ' i       j    Cov(i,j) including m uncertainty'
         np.savetxt(fname, np.column_stack((idx1.flatten() + 1, idx2.flatten() + 1, covmat.flatten())), header=header, delimiter='\t', fmt=['%4i', '%4i', '%.15e'])
-        print 'Saved covariance matrix (incl. shear calibration uncertainty) cut down according to masking scheme \'{:}\' to: \n'.format(self.name_mask), fname, '\n'
+        print('Saved covariance matrix (incl. shear calibration uncertainty) cut down according to masking scheme \'{:}\' to: \n'.format(self.name_mask), fname, '\n')
 
         # precompute Cholesky transform for chi^2 calculation:
         self.cholesky_transform = cholesky(covmat, lower=True)
@@ -303,8 +310,8 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
             fname = os.path.join(self.data_directory, 'SUPPLEMENTARY_FILES/KV450_xi_pm_c_term.dat')
             # function is measured over same theta scales as xip, xim
             self.xip_c_per_zbin, self.xim_c_per_zbin = np.loadtxt(fname, usecols=(3, 4), unpack=True)
-            print 'Loaded (angular) scale-dependent c-term function from: \n', fname, '\n'
-            #print self.xip_c_per_zbin.shape
+            print('Loaded (angular) scale-dependent c-term function from: \n', fname, '\n')
+            #print(self.xip_c_per_zbin.shape)
 
 
         # Fill array of discrete z values
@@ -341,7 +348,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
                 import pycl2xi.fftlog as fftlog
 
             except:
-                print 'FFTLog was requested as integration method for the Bessel functions but is not installed. \n Download it from "https://github.com/tilmantroester/pycl2xi" and follow the installation instructions there (also requires the fftw3 library). \n Aborting run now... \n'
+                print('FFTLog was requested as integration method for the Bessel functions but is not installed. \n Download it from "https://github.com/tilmantroester/pycl2xi" and follow the installation instructions there (also requires the fftw3 library). \n Aborting run now... \n')
                 exit()
 
             # this has to be declared a self, otherwise fftlog won't be available
@@ -488,7 +495,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
 
         data = np.concatenate((data_xip, data_xim))
 
-        print 'Loaded data vectors from: \n', os.path.join(self.data_directory, 'DATA_VECTOR/KV450_xi_pm_files/'), '\n'
+        print('Loaded data vectors from: \n', os.path.join(self.data_directory, 'DATA_VECTOR/KV450_xi_pm_files/'), '\n')
 
         return data
 
@@ -534,14 +541,14 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
         try:
             fname = os.path.join(self.data_directory, 'FOR_MONTE_PYTHON/Cov_mat_all_scales_inc_m_use_with_kv450_cf_likelihood_public.dat')
             matrix = np.loadtxt(fname)
-            print 'Loaded covariance matrix (incl. shear calibration uncertainty) in a format usable with this likelihood from: \n', fname, '\n'
+            print('Loaded covariance matrix (incl. shear calibration uncertainty) in a format usable with this likelihood from: \n', fname, '\n')
 
         except:
             fname = os.path.join(self.data_directory, 'COV_MAT/Cov_mat_all_scales.txt')
             tmp_raw = np.loadtxt(fname)
 
-            print 'Loaded covariance matrix in list format from: \n', fname
-            print 'Now we construct the covariance matrix in a format usable with this likelihood for the first time. \n This might take a few minutes, but only once! \n'
+            print('Loaded covariance matrix in list format from: \n', fname)
+            print('Now we construct the covariance matrix in a format usable with this likelihood for the first time. \n This might take a few minutes, but only once! \n')
 
             thetas_plus = self.theta_bins[:self.ntheta]
             thetas_minus = self.theta_bins[self.ntheta:]
@@ -579,10 +586,10 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
                                     for ipm2 in xrange(2):
                                         for ith2 in xrange(self.ntheta):
                                             for index_lin in xrange(len(tmp_raw)):
-                                                #print index1, index2
-                                                #print iz1, iz2, ipm, ith, iz3, iz4, ipm2
+                                                #print(index1, index2)
+                                                #print(iz1, iz2, ipm, ith, iz3, iz4, ipm2)
                                                 if iz1 + 1 == indices[index_lin, 0] and iz2 + 1 == indices[index_lin, 1] and ipm == indices[index_lin, 2] and iz3 + 1 == indices[index_lin, 3]  and iz4 + 1 == indices[index_lin, 4] and ipm2 == indices[index_lin, 5] and ith == thetas_raw_plus[index_lin] and ith2 == thetas_raw_minus[index_lin]:
-                                                    #print 'hit'
+                                                    #print('hit')
                                                     matrix[index1, index2] = values[index_lin]
                                                     matrix[index2, index1] = matrix[index1, index2]
                                             index2 += 1
@@ -600,7 +607,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
             fname = fname = os.path.join(self.data_directory, 'FOR_MONTE_PYTHON/Cov_mat_all_scales_inc_m_use_with_kv450_cf_likelihood_public.dat')
             if not os.path.isfile(fname):
                 np.savetxt(fname, matrix)
-                print 'Saved covariance matrix (incl. shear calibration uncertainty) in format usable with this likelihood to: \n', fname, '\n'
+                print('Saved covariance matrix (incl. shear calibration uncertainty) in format usable with this likelihood to: \n', fname, '\n')
 
         return matrix
 
@@ -638,7 +645,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
         header = ' i    theta(i)\'        xi_p/m(i)  (p=1, m=2)  itomo   jtomo'
         fname = os.path.join(self.data_directory , 'FOR_MONTE_PYTHON/{:}_cut_to_{:}.dat'.format(fname_prefix, self.name_mask))
         np.savetxt(fname, savedata, header=header, delimiter='\t', fmt=['%4i', '%.5e', '%12.5e', '%i', '%i', '%i'])
-        print 'Saved vector in list format cut down according to masking scheme \'{:}\' to: \n'.format(self.name_mask), fname, '\n'
+        print('Saved vector in list format cut down according to masking scheme \'{:}\' to: \n'.format(self.name_mask), fname, '\n')
 
         return
 
@@ -694,25 +701,6 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
         in its xi_p and xi_m parts.
         """
 
-        '''
-        tmp = np.zeros((2 * self.ntheta, self.nzbins, self.nzbins), 'float64')
-        vec1_new = np.zeros((self.ntheta, self.nzbins, self.nzbins), 'float64')
-        vec2_new = np.zeros((self.ntheta, self.nzbins, self.nzbins), 'float64')
-
-        index_corr = 0
-        for index_zbin1 in xrange(self.nzbins):
-            for index_zbin2 in xrange(index_zbin1, self.nzbins):
-                #for index_theta in xrange(ntheta):
-                index_low = 2 * self.ntheta * index_corr
-                index_high = 2 * self.ntheta * index_corr + 2 * self.ntheta
-                #print index_low, index_high
-                tmp[:, index_zbin1, index_zbin2] = vec_old[index_low:index_high]
-                vec1_new[:, index_zbin1, index_zbin2] = tmp[:self.ntheta, index_zbin1, index_zbin2]
-                vec2_new[:, index_zbin1, index_zbin2] = tmp[self.ntheta:, index_zbin1, index_zbin2]
-
-                index_corr += 1
-        '''
-
         tmp = np.zeros((2 * self.ntheta, self.nzcorrs), 'float64')
         vec1_new = np.zeros((self.ntheta, self.nzcorrs), 'float64')
         vec2_new = np.zeros((self.ntheta, self.nzcorrs), 'float64')
@@ -720,7 +708,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
         for index_corr in xrange(self.nzcorrs):
             index_low = 2 * self.ntheta * index_corr
             index_high = 2 * self.ntheta * index_corr + 2 * self.ntheta
-            #print index_low, index_high
+            #print(index_low, index_high)
             tmp[:, index_corr] = vec_old[index_low:index_high]
             vec1_new[:, index_corr] = tmp[:self.ntheta, index_corr]
             vec2_new[:, index_corr] = tmp[self.ntheta:, index_corr]
@@ -757,8 +745,8 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
         E_z = constant[self.baryon_model]['E2']*a_sqr+constant[self.baryon_model]['E1']*a+constant[self.baryon_model]['E0']
 
         # only for debugging; tested and works!
-        #print 'AGN: A2=-0.11900, B2= 0.1300, C2= 0.6000, D2= 0.002110, E2=-2.0600'
-        #print self.baryon_model+': A2={:.5f}, B2={:.5f}, C2={:.5f}, D2={:.5f}, E2={:.5f}'.format(constant[self.baryon_model]['A2'], constant[self.baryon_model]['B2'], constant[self.baryon_model]['C2'],constant[self.baryon_model]['D2'], constant[self.baryon_model]['E2'])
+        #print('AGN: A2=-0.11900, B2= 0.1300, C2= 0.6000, D2= 0.002110, E2=-2.0600')
+        #print(self.baryon_model+': A2={:.5f}, B2={:.5f}, C2={:.5f}, D2={:.5f}, E2={:.5f}'.format(constant[self.baryon_model]['A2'], constant[self.baryon_model]['B2'], constant[self.baryon_model]['C2'],constant[self.baryon_model]['D2'], constant[self.baryon_model]['E2']))
 
         # original formula:
         #bias_sqr = 1.-A_z*np.exp((B_z-C_z)**3)+D_z*x*np.exp(E_z*x)
@@ -773,8 +761,8 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
 
         # arbitrary convention
         z0 = 0.3
-        #print utils.growth_factor(z, self.Omega_m)
-        #print self.rho_crit
+        #print(utils.growth_factor(z, self.Omega_m))
+        #print(self.rho_crit)
         factor = -1. * amplitude * const * rho_crit * Omega_m / linear_growth_rate * ((1. + z) / (1. + z0))**exponent
 
         return factor
@@ -808,8 +796,8 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
 
         # final chi2
         vec = np.concatenate((xi_theo_1, xi_theo_2))[self.mask_indices] - np.concatenate((self.xi_obs_1, self.xi_obs_2))[self.mask_indices]
-        #print self.xi_obs[self.mask_indices], len(self.xi_obs[self.mask_indices])
-        #print self.xi[self.mask_indices], len(self.xi[self.mask_indices])
+        #print(self.xi_obs[self.mask_indices], len(self.xi_obs[self.mask_indices]))
+        #print(self.xi[self.mask_indices], len(self.xi[self.mask_indices]))
 
         if np.isinf(vec).any() or np.isnan(vec).any():
             chi2 = 2e12
@@ -867,7 +855,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
         if self.bootstrap_photoz_errors:
             # draw a random bootstrap n(z); borders are inclusive!
             random_index_bootstrap = np.random.randint(int(self.index_bootstrap_low), int(self.index_bootstrap_high) + 1)
-            #print 'Bootstrap index:', random_index_bootstrap
+            #print('Bootstrap index:', random_index_bootstrap)
             pz = np.zeros((self.nzmax, self.nzbins), 'float64')
             pz_norm = np.zeros(self.nzbins, 'float64')
 
@@ -1017,7 +1005,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
             rho_crit = self.get_critical_density(small_h)
             # derive the linear growth factor D(z)
             linear_growth_rate = np.zeros_like(self.z_p)
-            #print self.redshifts
+            #print(self.redshifts)
             for index_z, z in enumerate(self.z_p):
                 try:
                     # my own function from private CLASS modification:
@@ -1044,7 +1032,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
                 g[nr, Bin] = np.sum(0.5*(fun[1:] + fun[:-1]) * (r[nr+1:] - r[nr:-1]))
                 g[nr, Bin] *= 2. * r[nr] * (1. + self.z_p[nr])
 
-        #print 'g(r) \n', self.g
+        #print('g(r) \n', self.g)
         # Get power spectrum P(k=l/r,z(r)) from cosmological module
         #self.pk_dm = np.zeros_like(self.pk)
         pk = np.zeros((self.nlmax, self.nzmax), 'float64')
@@ -1060,26 +1048,6 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
                 else:
                     pk_dm = cosmo.pk(k_in_inv_Mpc, self.z_p[index_z])
                     pk_lin_dm = cosmo.pk_lin(k_in_inv_Mpc, self.z_p[index_z])
-                #self.pk_dm[index_l, index_z] = pk_dm
-                '''
-                if self.baryon_feedback:
-                    if self.use_joint_nuisance:
-                        param_name = 'A_bary'
-                    else:
-                        param_name = 'A_bary_{:}'.format(cosmo_index)
-
-                    if param_name in data.mcmc_parameters:
-                        A_bary = data.mcmc_parameters[param_name]['current'] * data.mcmc_parameters[param_name]['scale']
-                        #print 'A_bary={:.4f}'.format(A_bary)
-                        pk[index_l, index_z] = pk_dm * self.baryon_feedback_bias_sqr(k_in_inv_Mpc / small_h, self.z_p[index_z], A_bary=A_bary)
-                        pk_lin[index_l, index_z] = pk_lin_dm * self.baryon_feedback_bias_sqr(k_in_inv_Mpc / small_h, self.z_p[index_z], A_bary=A_bary)
-                    else:
-                        pk[index_l, index_z] = pk_dm * self.baryon_feedback_bias_sqr(k_in_inv_Mpc / small_h, self.z_p[index_z])
-                        pk_lin[index_l, index_z] = pk_lin_dm * self.baryon_feedback_bias_sqr(k_in_inv_Mpc / small_h, self.z_p[index_z])
-                else:
-                    pk[index_l, index_z] = pk_dm
-                    pk_lin[index_l, index_z] = pk_lin_dm
-                '''
 
                 if self.use_joint_nuisance:
                     param_name = 'A_bary'
@@ -1096,7 +1064,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
                     pk_lin[index_l, index_z] = pk_lin_dm
 
         '''
-        #print pk
+        #print(pk)
         # Recover the non_linear scale computed by halofit. If no scale was
         # affected, set the scale to one, and make sure that the nuisance
         # parameter epsilon is set to zero
@@ -1156,11 +1124,11 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
             for Bin1 in xrange(self.nzbins):
                 for Bin2 in xrange(Bin1, self.nzbins):
                     Cl_GG_integrand[1:, self.one_dim_index(Bin1,Bin2)] = g[1:, Bin1] * g[1:, Bin2] / r[1:]**2 * pk[il, 1:]
-                    #print self.Cl_integrand
+                    #print(self.Cl_integrand)
                     if intrinsic_alignment:
                         factor_IA = self.get_IA_factor(self.z_p, linear_growth_rate, rho_crit, Omega_m, small_h, amp_IA, exp_IA) #/ self.dzdr[1:]
-                        #print F_of_x
-                        #print self.eta_r[1:, zbin1].shape
+                        #print(F_of_x)
+                        #print(self.eta_r[1:, zbin1].shape)
                         if self.use_linear_pk_for_IA:
                             # this term (II) uses the linear matter power spectrum P_lin(k, z)
                             Cl_II_integrand[1:, self.one_dim_index(Bin1,Bin2)] = pr[1:, Bin1] * pr[1:, Bin2] * factor_IA[1:]**2 / r[1:]**2 * pk_lin[il, 1:]
@@ -1207,8 +1175,8 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
             Cl = Cl_GG + Cl_GI + Cl_II
         else:
             Cl = Cl_GG
-            #print Cl_GG
-            #print self.Cl
+            #print(Cl_GG)
+            #print(self.Cl)
 
         # Spline Cl[il,Bin1,Bin2] along l
         spline_Cl = np.empty(self.nzcorrs, dtype=(list, 3))
@@ -1251,7 +1219,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
             xi2 = xi2 / (2. * math.pi)
 
             #dt = timer() - t0
-            #print 'dt = {:.6f}'.format(dt)
+            #print('dt = {:.6f}'.format(dt))
         elif self.integrate_Bessel_with == 'fftlog':
             #t0 = timer()
             #for it in xrange(self.nthetatot):
@@ -1261,8 +1229,8 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
                 xi1[:, zcorr] = self.Cl2xi(Cll[zcorr, :], self.lll[:], self.theta[:] / 60., bessel_order=0) #, ell_min_fftlog=self.lll.min(), ell_max_fftlog=self.lll.max() + 1e4)
                 xi2[:, zcorr] = self.Cl2xi(Cll[zcorr, :], self.lll[:], self.theta[:] / 60., bessel_order=4) #, ell_min_fftlog=self.lll.min(), ell_max_fftlog=self.lll.max() + 1e4)
             #dt = timer() - t0
-            #print 'dt = {:.6f}'.format(dt)
-            #print self.lll.min(), self.lll.max(), self.lll.shape
+            #print('dt = {:.6f}'.format(dt))
+            #print(self.lll.min(), self.lll.max(), self.lll.shape)
             #exit()
 
         else:
@@ -1288,7 +1256,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
             xi2 = xi2 / (2. * math.pi)
 
             #dt = timer() - t0
-            #print 'dt = {:.6f}'.format(dt)
+            #print('dt = {:.6f}'.format(dt))
 
         # Spline the xi's
         xi1_theta = np.empty(self.nzcorrs, dtype=(list, 3))
@@ -1320,7 +1288,7 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
             temp = np.concatenate((xi_p, xi_m))
             xi = self.__get_xi_obs(temp)
             #dt = timer() - t0
-            #print dt
+            #print(dt)
 
         else:
             # Get xi's in same column vector format as the data
@@ -1346,16 +1314,16 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
         # it's zero if not requested!
         # same goes for constant relative offset of c-correction dc_sqr
         # TODO: in both arrays the xim-component is set to zero for now!!!
-        #print self.xi, self.xi.shape
-        #print xipm_c, xipm_c.shape
-        #print dc_sqr, dc_sqr.shape
+        #print(self.xi, self.xi.shape)
+        #print(xipm_c, xipm_c.shape)
+        #print(dc_sqr, dc_sqr.shape)
         xi = xi * dm_plus_one_sqr_obs + xipm_c + dc_sqr
 
         if self.write_out_theory:
             # write out masked theory vector in list format:
             self.__write_out_vector_in_list_format(xi, fname_prefix='THEORY_2cosmos_xi_pm_cosmo{:}'.format(cosmo_index))
             if cosmo_index == 2:
-                print 'Aborting run now... \n Set flag "write_out_theory = False" for likelihood evaluations! \n'
+                print('Aborting run now... \n Set flag "write_out_theory = False" for likelihood evaluations! \n')
                 exit()
 
         return xi
@@ -1366,6 +1334,6 @@ class kv450_cf_2cosmos_likelihood_public(Likelihood):
     # into 1D sums over one index with N(N+1)/2 possible values
     def one_dim_index(self,Bin1,Bin2):
         if Bin1 <= Bin2:
-            return Bin2+self.nzbins*Bin1-(Bin1*(Bin1+1))/2
+            return Bin2+self.nzbins*Bin1-(Bin1*(Bin1+1))//2
         else:
-            return Bin1+self.nzbins*Bin2-(Bin2*(Bin2+1))/2
+            return Bin1+self.nzbins*Bin2-(Bin2*(Bin2+1))//2

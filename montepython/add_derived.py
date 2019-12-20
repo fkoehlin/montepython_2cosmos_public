@@ -4,6 +4,7 @@
 
 .. moduleauthor:: Benjamin Audren <benjamin.audren@epfl.ch>
 """
+from __future__ import print_function
 try:
     from collections import OrderedDict as od
 except ImportError:
@@ -16,7 +17,7 @@ import sampler
 from data import Data
 from data import Parameter
 from classy import CosmoComputationError
-
+from io_mp import dictitems,dictvalues,dictkeys
 
 def run(cosmo, data, command_line):
     """
@@ -71,7 +72,7 @@ def run(cosmo, data, command_line):
     # Note the use of translate_chain_star, and not translate_chain, because of
     # the limitations of the `map` function (it only takes one argument). The
     # `_star` function simply unwraps the argument.
-    print '\nStart extracting the chains:\n'
+    print('\nStart extracting the chains:\n')
     pool.map(extend_chain_star, args)
     # Close the pool, and join everything (the join might not be needed)
     pool.close()
@@ -86,7 +87,7 @@ def extend_chain(data, cosmo, command_line, target_folder, chain_name,
     """
     input_path = os.path.join(command_line.folder, chain_name)
     output_path = os.path.join(target_folder, chain_name)
-    print ' -> reading ', input_path
+    print(' -> reading ', input_path)
     # Put in parameter_names all the varying parameters, plus the derived ones
     # that are not part of new_derived
     parameter_names = data.get_mcmc_parameters(['varying'])
@@ -119,15 +120,15 @@ def extend_chain(data, cosmo, command_line, target_folder, chain_name,
                 # Recover all the derived parameters
                 derived = cosmo.get_current_derived_parameters(
                     data.get_mcmc_parameters(['derived']))
-                for name, value in derived.iteritems():
+                for name, value in dictitems(derived):
                     data.mcmc_parameters[name]['current'] = value
-                for name in derived.iterkeys():
-                    data.mcmc_parameters[elem]['current'] /= \
-                        data.mcmc_parameters[elem]['scale']
+                for name in dictkeys(derived):
+                    data.mcmc_parameters[name]['current'] /= \
+                        data.mcmc_parameters[name]['scale']
                 # Accept the point
                 sampler.accept_step(data)
                 io_mp.print_vector([output_chain], N, loglike, data)
-    print output_path, 'written'
+    print(output_path, 'written')
 
 
 def extend_chain_star(args):

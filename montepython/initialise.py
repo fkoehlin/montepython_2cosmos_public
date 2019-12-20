@@ -4,12 +4,13 @@
 .. moduleauthor:: Benjamin Audren <benjamin.audren@epfl.ch>
 
 """
+from __future__ import print_function
 import io_mp
 import parser_mp   # parsing the input command line
 from data import Data
 import sys
 import os
-
+from io_mp import dictitems,dictvalues,dictkeys
 
 def initialise(custom_command=''):
     """
@@ -56,7 +57,8 @@ def initialise(custom_command=''):
     if command_line.subparser_name == "info":
         from analyze import analyze  # only invoked when analyzing
         analyze(command_line)
-        return None, None, command_line, False
+        # FK: we need an additional None because of two cosmo-modules!
+        return None, None, None, command_line, False
 
     # Fill in data, starting from  parameter file. If output folder already
     # exists, the input parameter file was automatically replaced by the
@@ -126,7 +128,7 @@ def recover_local_path(command_line):
         if os.path.isfile(conf_file):
             for line in open(conf_file):
                 exec(line)
-            for key, value in path.iteritems():
+            for key, value in dictitems(path):
                 path[key] = os.path.normpath(os.path.expanduser(value))
         else:
             # The error is ignored if reading from a log.param, because it is
@@ -184,6 +186,7 @@ def recover_cosmological_module(data):
         # FK: we need two independent instances of Class!
         cosmo1 = Class()
         cosmo2 = Class()
+
     else:
         raise io_mp.ConfigurationError(
             "Unrecognised cosmological module. " +
